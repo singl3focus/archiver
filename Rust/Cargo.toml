@@ -1,0 +1,10 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.20", features = ["derive"] }
+rand = "0.8.5"
+zip = "2.2.0"
+zip_archive = "1.2.2"
