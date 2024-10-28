@@ -1,8 +1,10 @@
 extern crate clap;
 
 use clap::{Arg, Command};
+use std::io;
 use std::path::PathBuf;
 use std::path::Path;
+use std::fs::File;
 use zip_archive::Archiver;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -48,8 +50,7 @@ fn main() {
                 .long("format")
                 .required(false)
                 .value_parser(["zip"])
-                .help("Data format. Needed only for compressing data.
-                        In case there is a decompression, data format will be define automatically"),
+                .help("Data format. Needed only for compressing data.\nIn case there is a decompression, data format will be define automatically"),
         )
         .get_matches();
 
@@ -138,7 +139,33 @@ fn decompression_distribution(src_path: &str, dst_path: &str) -> Result<()> {
 }
 
 fn decompress_from_zip(src_path: &str, dst_path: &str) -> Result<()> {
-    _ = src_path;
     _ = dst_path;
-    Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Not implemented")))
+
+    let zip_file: &Path = Path::new(src_path);
+    let zip_file: File = File::open(zip_file).unwrap();
+    let mut archive: zip::ZipArchive<File> = zip::ZipArchive::new(zip_file).unwrap();
+
+    for i in 0..archive.len() {
+        let mut file: zip::read::ZipFile<'_> = archive.by_index(i).unwrap();
+
+        let outpath = match file.enclosed_name() {
+            Some(path) => path.to_owned(),
+            None => continue
+        };
+
+        if (*file.name()).ends_with("/") {
+            std::fs::create_dir_all(&outpath).unwrap();
+        } else {
+            if let Some(p) = outpath.parent() {
+                if !p.exists() {
+                    std::fs::create_dir_all(&p).unwrap();
+                }
+            }
+        }
+
+        let mut outfile = File::create(&outpath).unwrap();
+        io::copy(&mut file, &mut outfile).unwrap();
+    }
+
+    Ok(())
 }
