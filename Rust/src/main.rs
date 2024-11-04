@@ -1,88 +1,87 @@
 extern crate clap;
 
-use clap::{Arg, Command};
-use std::io;
-use std::path::PathBuf;
-use std::path::Path;
+use clap::Parser;
 use std::fs::File;
+use std::io;
+use std::path::Path;
+use std::path::PathBuf;
 use zip_archive::Archiver;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-const APP_NAME: &str = "antim";
-const APP_VER: &str = "0.3.0";
+
+#[derive(Parser)]
+#[command(name = "antim")]
+#[command(version = "0.4.0")]
+#[command(about = "Simple archive app")]
+#[command(long_about = None)]
+#[command(author = "Tursunov Imran <tursunov.imran@mail.ru>")]
+struct Cli {
+    #[arg(short, long, value_parser = ["compress", "decompress"],
+        value_name = "Mode of operation")]
+    mode: String,
+
+    #[arg(short, long, value_name = "Source path")]
+    source: PathBuf,
+
+    #[arg(short, long, value_name = "Destination path")]
+    destination: PathBuf,
+
+    #[arg(short, long, value_parser = ["zip"],
+        value_name = "Data format. Needed only for compressing data.\n\t\tIn case there is a decompression, data format will be define automatically")]
+    format: Option<String>,
+   
+    // #[command(subcommand)]
+    // command: Option<Commands>,
+}
+
+// #[derive(Subcommand)]
+// enum Commands {
+//     Test {
+//         #[arg(short, long)]
+//         list: bool,
+//     },
+// }
 
 fn main() {
-    let mode_arg: &str = "mode";
-    let src_arg: &str = "src";
-    let dst_arg: &str = "dst";
-    let format_arg: &str = "format";
+    let cli: Cli = Cli::parse();
 
-    let app = Command::new(APP_NAME)
-        .version(APP_VER)
-        .author("Tursunov Imran <tursunov.imran@mail.ru>")
-        .about("Simple archive app")
-        .arg(
-            Arg::new("mode")
-                .short('m')
-                .long("mode")
-                .required(true)
-                .value_parser(["compress", "decompress"])
-                .help("Mode of operation: compress or decompress"),
-        )
-        .arg(
-            Arg::new(src_arg)
-                .short('s')
-                .long("source")
-                .required(true)
-                .help("Source path for compress"),
-        )
-        .arg(
-            Arg::new(dst_arg)
-                .short('d')
-                .long("destination")
-                .required(true)
-                .help("Destination path of compressed file"),
-        )
-        .arg(
-            Arg::new(format_arg)
-                .short('f')
-                .long("format")
-                .required(false)
-                .value_parser(["zip"])
-                .help("Data format. Needed only for compressing data.\nIn case there is a decompression, data format will be define automatically"),
-        )
-        .get_matches();
-
-    let mode: &String = app.get_one::<String>(mode_arg).unwrap();
-    let src: &String = app.get_one::<String>(src_arg).unwrap();
-    let dst: &String = app.get_one::<String>(dst_arg).unwrap();
-    
-    let default: &String = &String::from("");
-    let dataformat: &String = app.get_one::<String>(format_arg).unwrap_or(default);
-    
-    if src.is_empty() {
-        eprintln!("Error: Source path cannot be empty.");
+    if !cli.source.exists() {
+        eprintln!("Error: Invalid source path.");
         std::process::exit(1);
     }
-    if dst.is_empty() {
-        eprintln!("Error: Destination path cannot be empty.");
+    if cli.destination.is_file() {
+        eprintln!("Error: Destination path must be directory, not file.");
         std::process::exit(1);
     }
 
+    let src: &str = cli.source.to_str().unwrap(); // [DANGER] CALL PANICS
+    let dst: &str = cli.destination.to_str().unwrap(); // [DANGER] CALL PANICS
     
-    let mode: String = mode.to_lowercase();
+    let dataformat: Option<String>  = cli.format; 
+    let df: String;
+    match dataformat {
+        Some(dataformat) => {
+            df = dataformat;
+        },
+        None => {
+            df = String::from("");
+        },
+    }
+
+
+    let mode: String = cli.mode.to_lowercase();
     match mode.as_str() {
-        "compress" => {
-            match compression_distribution(src, dst, dataformat) {
+        "compress" => { 
+            match compression_distribution(src, dst, &df) {
                 Ok(_) => println!("Compress data has been successful."),
-                Err(e) => eprintln!("Compress data has been unsuccessful: {e}."),
-            } 
-        }
-        "decompress" => {
+                Err(e) => eprintln!("Error: Compress data has been unsuccessful: {e}."),
+            }
+        }    
+        "decompress" => { 
             match decompression_distribution(src, dst) {
                 Ok(_) => println!("Decompress data has been successful."),
-                Err(e) => eprintln!("Decompress data has been unsuccessful: {e}."),
+                Err(e) => eprintln!("Error: Decompress data has been unsuccessful: {e}."),
             }
         }
         _ => {
@@ -90,18 +89,23 @@ fn main() {
             std::process::exit(1);
         }
     }
-    
 }
 
-// distribution_by_compression_format
+// distribution by compression format
 fn compression_distribution(src_path: &str, dst_path: &str, dataformat: &String) -> Result<()> {
     if dataformat.is_empty() {
-        return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Data format is empty")));
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Data format is empty",
+        )));
     }
-    
+
     match dataformat.to_lowercase().as_str() {
         "zip" => compress_to_zip(src_path, dst_path),
-        _ => Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Undefined dataformat")))
+        _ => Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Undefined dataformat",
+        ))),
     }
 }
 
@@ -110,31 +114,28 @@ fn compress_to_zip(src_path: &str, dst_path: &str) -> Result<()> {
     let dest: PathBuf = PathBuf::from(dst_path);
 
     // let thread_count: i32 = 4;
-    
+
     let mut archiver: Archiver = Archiver::new();
-    archiver.push(src);        // Add dir to queue
-    archiver.set_destination(dest);  // Add dst path
-    // archiver.set_thread_count(thread_count);
+    archiver.push(src); // Add dir to queue
+    archiver.set_destination(dest); // Add dst path
+                                    // archiver.set_thread_count(thread_count);
 
     archiver.archive()
 }
 
 fn get_file_extension(filename: &str) -> Option<&str> {
-    Path::new(filename).extension()
-        .and_then(|ext| ext.to_str()) // Преобразуем в строку
-        // .map(|ext| ext.to_string()) // Возвращаем расширение как String
+    Path::new(filename).extension().and_then(|ext| ext.to_str()) // Преобразуем в строку
+                                                                 // .map(|ext| ext.to_string()) // Возвращаем расширение как String
 }
 
-// distribution_by_decompression_format
+// distribution by decompression format
 fn decompression_distribution(src_path: &str, dst_path: &str) -> Result<()> {
     match get_file_extension(src_path) {
-        Some(ext) => {
-            match ext {
-                "zip" => decompress_from_zip(src_path, dst_path),
-                _ => Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Undefined dataformat")))
-            }
+        Some(ext) => match ext {
+            "zip" => decompress_from_zip(src_path, dst_path),
+            _ => Err(Box::new(std::io::Error::new( std::io::ErrorKind::Other,"Undefined dataformat"))),
         },
-        None => Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Extension not found")))
+        None => Err(Box::new(std::io::Error::new( std::io::ErrorKind::Other,"Extension not found"))),
     }
 }
 
@@ -150,7 +151,7 @@ fn decompress_from_zip(src_path: &str, dst_path: &str) -> Result<()> {
 
         let outpath = match file.enclosed_name() {
             Some(path) => path.to_owned(),
-            None => continue
+            None => continue,
         };
 
         if (*file.name()).ends_with("/") {
