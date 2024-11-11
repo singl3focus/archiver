@@ -1,5 +1,7 @@
 # Backend of Archiver project (Rust)
 
+Project "Antim Archiver". 
+
 ## Usage
 
 - Build in debug mode: \
