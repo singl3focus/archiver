@@ -13,6 +13,150 @@
 #include <QLineEdit>
 #include <QVBoxLayout>
 #include <QDir>
+#include <QProcess>
+#include <QFileDialog>
+#include <QDialog>
+#include <QComboBox>
+#include <QLabel>
+#include <QPushButton>
+#include <QHBoxLayout>
+#include <QDebug>
+
+void runArchiverUtility(const QString &src, const QString &dst, const QString &format) {
+    QProcess *process = new QProcess;
+
+    // Аргументы для утилиты
+    QStringList arguments;
+    arguments << "--source" << src
+              << "--destination" << dst
+              << "--format" << format
+              << "compress";
+
+    // Подключаемся к сигналу readyReadStandardOutput для чтения вывода
+    QObject::connect(process, &QProcess::readyReadStandardOutput, [process]() {
+        QByteArray output = process->readAllStandardOutput();
+        qDebug() << "Output:" << output;
+    });
+
+    // Подключаемся к сигналу finished для обработки завершения процесса
+    QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), [process](int exitCode, QProcess::ExitStatus exitStatus) {
+        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+            QMessageBox::information(nullptr, "Success", "Operation completed successfully!");
+        } else {
+            QByteArray errorOutput = process->readAllStandardError();
+            qDebug() << "Error Output:" << errorOutput;
+            QMessageBox::warning(nullptr, "Error", "Operation failed: " + QString(errorOutput));
+        }
+        process->deleteLater();
+    });
+
+    // Запускаем утилиту
+    process->start("D:/archiver/C++/app/utility.exe", arguments);
+
+    // Проверяем, что процесс успешно запущен
+    if (!process->waitForStarted()) {
+        QMessageBox::warning(nullptr, "Error", "Could not start the archiver utility.");
+        delete process;
+    }
+}
+
+void runExtractUtility(const QString &src, const QString &dst) {
+    QProcess *process = new QProcess;
+
+    // Аргументы для утилиты
+    QStringList arguments;
+    arguments << "--source" << src
+              << "--destination" << dst
+              << "decompress";
+
+    // Подключаемся к сигналу readyReadStandardOutput для чтения вывода
+    QObject::connect(process, &QProcess::readyReadStandardOutput, [process]() {
+        QByteArray output = process->readAllStandardOutput();
+        qDebug() << "Output:" << output;
+    });
+
+    // Подключаемся к сигналу finished для обработки завершения процесса
+    QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), [process](int exitCode, QProcess::ExitStatus exitStatus) {
+        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+            QMessageBox::information(nullptr, "Success", "Extraction completed successfully!");
+        } else {
+            QByteArray errorOutput = process->readAllStandardError();
+            qDebug() << "Error Output:" << errorOutput;
+            QMessageBox::warning(nullptr, "Error", "Extraction failed: " + QString(errorOutput));
+        }
+        process->deleteLater();
+    });
+
+    // Запускаем утилиту
+    process->start("D:/archiver/C++/app/utility.exe", arguments);
+
+    // Проверяем, что процесс успешно запущен
+    if (!process->waitForStarted()) {
+        QMessageBox::warning(nullptr, "Error", "Could not start the archiver utility.");
+        delete process;
+    }
+}
+
+
+
+// Функция для показа модального окна выбора пути и формата архивации
+void showCompressionDialog(QWidget *parent, const QString &sourcePath) {
+    QDialog dialog(parent);
+    dialog.setWindowTitle("Choose Archive Path and Format");
+
+    QLabel *labelPath = new QLabel("Save to:");
+    QLineEdit *lineEditPath = new QLineEdit;
+    QPushButton *browseButton = new QPushButton("Browse...");
+
+    QHBoxLayout *pathLayout = new QHBoxLayout;
+    pathLayout->addWidget(labelPath);
+    pathLayout->addWidget(lineEditPath);
+    pathLayout->addWidget(browseButton);
+
+    QLabel *labelFormat = new QLabel("Format:");
+    QComboBox *comboBoxFormat = new QComboBox;
+    comboBoxFormat->addItems({"zip", "tar"});
+
+    QHBoxLayout *formatLayout = new QHBoxLayout;
+    formatLayout->addWidget(labelFormat);
+    formatLayout->addWidget(comboBoxFormat);
+
+    QPushButton *okButton = new QPushButton("OK");
+    QPushButton *cancelButton = new QPushButton("Cancel");
+
+    QHBoxLayout *buttonLayout = new QHBoxLayout;
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(okButton);
+    buttonLayout->addWidget(cancelButton);
+
+    QVBoxLayout *mainLayout = new QVBoxLayout(&dialog);
+    mainLayout->addLayout(pathLayout);
+    mainLayout->addLayout(formatLayout);
+    mainLayout->addLayout(buttonLayout);
+
+    QObject::connect(browseButton, &QPushButton::clicked, [&]() {
+        QString dir = QFileDialog::getExistingDirectory(&dialog, "Select Archive Destination", QDir::homePath());
+        if (!dir.isEmpty()) {
+            lineEditPath->setText(dir);
+        }
+    });
+
+    QObject::connect(okButton, &QPushButton::clicked, [&]() {
+        QString destinationPath = lineEditPath->text();
+        QString format = comboBoxFormat->currentText();
+        if (!destinationPath.isEmpty()) {
+            dialog.accept();
+            runArchiverUtility(sourcePath, destinationPath, format);
+        } else {
+            QMessageBox::warning(&dialog, "Error", "Please specify a valid path to save the archive.");
+        }
+    });
+
+    QObject::connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
+
+    dialog.exec();
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -238,21 +382,28 @@ int main(int argc, char *argv[])
     mainWindow.setStyleSheet(styleSheet);
 
     QFileSystemModel *model = new QFileSystemModel();
-    model->setRootPath(QDir::homePath());
+    model->setRootPath(QDir::rootPath());
 
     QTreeView *tree = new QTreeView();
     tree->setModel(model);
-    tree->setRootIndex(model->index(QDir::homePath()));
+    tree->setRootIndex(model->index("C:/"));
     tree->setExpandsOnDoubleClick(false);
     tree->setItemsExpandable(false);
     tree->setRootIsDecorated(false);
 
+    // Создание QComboBox для выбора дисков
+    QComboBox *diskComboBox = new QComboBox();
+    foreach (const QFileInfo &drive, QDir::drives()) {
+        diskComboBox->addItem(drive.absolutePath());
+    }
+
+    QString initialPath = QDir::drives().isEmpty() ? QString() : QDir::drives().first().absolutePath();
     QLineEdit *pathLineEdit = new QLineEdit();
     pathLineEdit->setReadOnly(false);
-    pathLineEdit->setText(QDir::homePath());
+    pathLineEdit->setText(initialPath);
 
     QToolButton *backButton = new QToolButton(&mainWindow);
-    backButton->setIcon(QIcon(":/img/img/back.svg"));
+    backButton->setIcon(QIcon(":/icons/icons/back.svg"));
 
     backButton->setStyleSheet(R"(
 
@@ -266,14 +417,41 @@ int main(int argc, char *argv[])
 
     )");
 
+    // Логика для кнопки "back" (переход к родительской директории или к списку дисков)
     QObject::connect(backButton, &QToolButton::clicked, [&]() {
         QModelIndex currentRoot = tree->rootIndex();
-        QModelIndex parentIndex = model->parent(currentRoot);
+        QString currentPath = model->filePath(currentRoot);
 
-        if (parentIndex.isValid()) {
-            tree->setRootIndex(parentIndex);
-            QString path = model->filePath(parentIndex);
-            pathLineEdit->setText(path);
+        // Проверка, является ли текущий путь корнем одного из дисков
+        bool isRootDrive = false;
+        foreach (const QFileInfo &drive, QDir::drives()) {
+            if (drive.absolutePath() == currentPath) {
+                isRootDrive = true;
+                break;
+            }
+        }
+
+        if (isRootDrive) {
+            // Если текущий путь — корень диска, возвращаемся к отображению списка дисков
+            tree->setRootIndex(QModelIndex());  // Сбрасываем на начальный уровень (отображение дисков)
+            pathLineEdit->clear();  // Очищаем QLineEdit, если показываем список дисков
+        } else {
+            // Иначе поднимаемся на уровень выше
+            QModelIndex parentIndex = model->parent(currentRoot);
+            if (parentIndex.isValid()) {
+                tree->setRootIndex(parentIndex);
+                pathLineEdit->setText(model->filePath(parentIndex));  // Обновляем QLineEdit на новый путь
+            }
+        }
+    });
+
+    // Логика смены диска при выборе в ComboBox
+    QObject::connect(diskComboBox, &QComboBox::currentTextChanged, [&](const QString &diskPath) {
+        if (QDir(diskPath).exists()) {
+            tree->setRootIndex(model->index(diskPath));
+            pathLineEdit->setText(diskPath);  // Обновляем QLineEdit при смене диска
+        } else {
+            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("The selected disk is not accessible!"));
         }
     });
 
@@ -295,6 +473,69 @@ int main(int argc, char *argv[])
         }
     });
 
+
+    QObject::connect(addButton, &QToolButton::clicked, [&]() {
+        QModelIndex selectedIndex = tree->selectionModel()->currentIndex();
+        if (selectedIndex.isValid() && model->isDir(selectedIndex)) {
+            QString folderPath = model->filePath(selectedIndex);
+
+            // Теперь вызываем диалог для выбора пути и формата архивации
+            showCompressionDialog(&mainWindow, folderPath);
+        } else {
+            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Please select a folder to add to the archive."));
+        }
+    });
+
+
+    QObject::connect(addAction, &QAction::triggered, [&]() {
+        QModelIndex selectedIndex = tree->selectionModel()->currentIndex();
+        if (selectedIndex.isValid() && model->isDir(selectedIndex)) {
+            QString folderPath = model->filePath(selectedIndex);
+
+            // Теперь вызываем диалог для выбора пути и формата архивации
+            showCompressionDialog(&mainWindow, folderPath);
+        } else {
+            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Please select a folder to add to the archive."));
+        }
+    });
+
+
+    QObject::connect(extractButton, &QToolButton::clicked, [&]() {
+        QModelIndex selectedIndex = tree->selectionModel()->currentIndex();
+        if (selectedIndex.isValid() && !model->isDir(selectedIndex)) {
+            QString archivePath = model->filePath(selectedIndex);
+
+            // Показать диалог для выбора папки назначения
+            QString destinationPath = QFileDialog::getExistingDirectory(&mainWindow, "Select Destination Folder");
+            if (!destinationPath.isEmpty()) {
+                runExtractUtility(archivePath, destinationPath);
+            } else {
+                QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Please select a valid destination folder."));
+            }
+        } else {
+            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Please select a valid archive file to extract."));
+        }
+    });
+
+
+    QObject::connect(extratToFolAction, &QAction::triggered, [&]() {
+        QModelIndex selectedIndex = tree->selectionModel()->currentIndex();
+        if (selectedIndex.isValid() && !model->isDir(selectedIndex)) {
+            QString archivePath = model->filePath(selectedIndex);
+
+            // Показать диалог для выбора папки назначения
+            QString destinationPath = QFileDialog::getExistingDirectory(&mainWindow, "Select Destination Folder");
+            if (!destinationPath.isEmpty()) {
+                runExtractUtility(archivePath, destinationPath);
+            } else {
+                QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Please select a valid destination folder."));
+            }
+        } else {
+            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Please select a valid archive file to extract."));
+        }
+    });
+
+
     QWidget *centralWidget = new QWidget();
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
 
@@ -306,7 +547,7 @@ int main(int argc, char *argv[])
     mainLayout->addWidget(tree);
     mainWindow.setCentralWidget(centralWidget);
 
-    mainWindow.setWindowTitle(QObject::tr("SUAI Archiver"));
+    mainWindow.setWindowTitle(QObject::tr("Antim Archiver"));
     mainWindow.resize(1280,720);
     mainWindow.show();
 
