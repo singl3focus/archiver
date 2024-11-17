@@ -21,6 +21,11 @@
 #include <QPushButton>
 #include <QHBoxLayout>
 #include <QDebug>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QClipboard>
+#include <QItemDelegate>
+#include <QFileInfo>
 
 void runArchiverUtility(const QString &src, const QString &dst, const QString &format) {
     QProcess *process = new QProcess;
@@ -158,6 +163,39 @@ void showCompressionDialog(QWidget *parent, const QString &sourcePath) {
 }
 
 
+
+bool copyDirectoryContents(const QString &sourceDirPath, const QString &destinationDirPath) {
+    QDir sourceDir(sourceDirPath);
+    if (!sourceDir.exists()) {
+        return false;
+    }
+
+    QDir destinationDir(destinationDirPath);
+    if (!destinationDir.exists()) {
+        destinationDir.mkpath(".");
+    }
+
+    foreach (QString fileName, sourceDir.entryList(QDir::Files | QDir::NoDotAndDotDot)) {
+        QString srcFilePath = sourceDirPath + "/" + fileName;
+        QString destFilePath = destinationDirPath + "/" + fileName;
+        if (!QFile::copy(srcFilePath, destFilePath)) {
+            return false;
+        }
+    }
+
+    foreach (QString dirName, sourceDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        QString srcDirPath = sourceDirPath + "/" + dirName;
+        QString destDirPath = destinationDirPath + "/" + dirName;
+        if (!copyDirectoryContents(srcDirPath, destDirPath)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
@@ -167,7 +205,6 @@ int main(int argc, char *argv[])
     QMenuBar *menuBar = mainWindow.menuBar();
     QMenu *fileMenu = menuBar->addMenu(QObject::tr("&File"));
     QMenu *commandsMenu = menuBar->addMenu(QObject::tr("&Commands"));
-    QMenu *operationsMenu = menuBar->addMenu(QObject::tr("&Operations"));
     QMenu *helpMenu = menuBar->addMenu(QObject::tr("&Help"));
 
 
@@ -176,14 +213,6 @@ int main(int argc, char *argv[])
     QAction *openAction = new QAction(QObject::tr("&Open archive"), &mainWindow);
     openAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_O));
     fileMenu->addAction(openAction);
-
-    QAction *chooseAction = new QAction(QObject::tr("&Choose CD"), &mainWindow);
-    chooseAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_D));
-    fileMenu->addAction(chooseAction);
-
-    QAction *defaultAction = new QAction(QObject::tr("&Set as default"), &mainWindow);
-    defaultAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_P));
-    fileMenu->addAction(defaultAction);
 
     QAction *copyAction = new QAction(QObject::tr("&Copy"), &mainWindow);
     copyAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_C));
@@ -197,12 +226,8 @@ int main(int argc, char *argv[])
     highliteAllAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_A));
     fileMenu->addAction(highliteAllAction);
 
-    QAction *highliteGroupAction = new QAction(QObject::tr("&Highlite group"), &mainWindow);
-    highliteGroupAction->setShortcut(QKeySequence(Qt::Key_Plus));
-    fileMenu->addAction(highliteGroupAction);
-
-    QAction *noneHighliteAction = new QAction(QObject::tr("&None Highlite"), &mainWindow);
-    noneHighliteAction->setShortcut(QKeySequence(Qt::Key_Minus));
+    QAction *noneHighliteAction = new QAction(QObject::tr("&None highlite"), &mainWindow);
+    noneHighliteAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Minus));
     fileMenu->addAction(noneHighliteAction);
 
     QAction *exitAction = new QAction(QObject::tr("&Exit"), &mainWindow);
@@ -221,10 +246,6 @@ int main(int argc, char *argv[])
     extratToFolAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_E));
     commandsMenu->addAction(extratToFolAction);
 
-    QAction *testAction = new QAction(QObject::tr("&Test files in archive"), &mainWindow);
-    testAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_T));
-    commandsMenu->addAction(testAction);
-
     QAction *showAction = new QAction(QObject::tr("&Show file contents"), &mainWindow);
     showAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_V));
     commandsMenu->addAction(showAction);
@@ -237,36 +258,13 @@ int main(int argc, char *argv[])
     renameAction->setShortcut(QKeySequence(Qt::Key_F2));
     commandsMenu->addAction(renameAction);
 
-    QAction *extractWithoutConfirmAction = new QAction(QObject::tr("&Extract without confirmation"), &mainWindow);
-    extractWithoutConfirmAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_W));
-    commandsMenu->addAction(extractWithoutConfirmAction);
-
     QAction *commAction = new QAction(QObject::tr("&Add archive comment"), &mainWindow);
     commAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_M));
     commandsMenu->addAction(commAction);
 
-    QAction *blockAction = new QAction(QObject::tr("&Block archive"), &mainWindow);
-    blockAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_L));
-    commandsMenu->addAction(blockAction);
-
-
-
-    //Список пунктов Operations
-    QAction *searchAction = new QAction(QObject::tr("&Find files"), &mainWindow);
-    searchAction->setShortcut(QKeySequence(Qt::Key_F3));
-    operationsMenu->addAction(searchAction);
-
-    QAction *infoAction = new QAction(QObject::tr("&Show info"), &mainWindow);
+    QAction *infoAction = new QAction(QObject::tr("&Show information"), &mainWindow);
     infoAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_I));
-    operationsMenu->addAction(infoAction);
-
-    QAction *repAction = new QAction(QObject::tr("&Сreate a report"), &mainWindow);
-    repAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_G));
-    operationsMenu->addAction(repAction);
-
-    QAction *benchmarkAction = new QAction(QObject::tr("&Benchmark"), &mainWindow);
-    benchmarkAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_B));
-    operationsMenu->addAction(benchmarkAction);
+    commandsMenu->addAction(infoAction);
 
 
 
@@ -274,11 +272,11 @@ int main(int argc, char *argv[])
     QAction *contentAction = new QAction(QObject::tr("&Content"), &mainWindow);
     helpMenu->addAction(contentAction);
 
-    QAction *aboutAction = new QAction(QObject::tr("&About the program..."), &mainWindow);
+    QAction *aboutAction = new QAction(QObject::tr("&About the program"), &mainWindow);
     helpMenu->addAction(aboutAction);
 
     QObject::connect(aboutAction, &QAction::triggered, [&mainWindow]() {
-        QMessageBox::about(&mainWindow, QObject::tr("About the program SUAI Archiver"), QObject::tr("SUAI Archiver\nVersion 1.0\n\nThis program is developed to work with file archives"));
+        QMessageBox::about(&mainWindow, QObject::tr("About the program AntimAR"), QObject::tr("AntimAR\nVersion 1.0\n\nThis program is developed to work with file archives"));
     });
 
 
@@ -298,12 +296,6 @@ int main(int argc, char *argv[])
     extractButton->setIcon(QIcon (":/icons/icons/extract.svg"));
     extractButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     toolBar->addWidget(extractButton);
-
-    QToolButton *testButton = new QToolButton(&mainWindow);
-    testButton->setText(QObject::tr("Test"));
-    testButton->setIcon(QIcon (":/icons/icons/test.svg"));
-    testButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    toolBar->addWidget(testButton);
 
     QToolButton *viewButton = new QToolButton(&mainWindow);
     viewButton->setText(QObject::tr("View"));
@@ -390,6 +382,7 @@ int main(int argc, char *argv[])
     tree->setExpandsOnDoubleClick(false);
     tree->setItemsExpandable(false);
     tree->setRootIsDecorated(false);
+    tree->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
     // Создание QComboBox для выбора дисков
     QComboBox *diskComboBox = new QComboBox();
@@ -416,6 +409,7 @@ int main(int argc, char *argv[])
         }
 
     )");
+
 
     // Логика для кнопки "back" (переход к родительской директории или к списку дисков)
     QObject::connect(backButton, &QToolButton::clicked, [&]() {
@@ -455,13 +449,21 @@ int main(int argc, char *argv[])
         }
     });
 
+    // Обработка двойного клика
     QObject::connect(tree, &QTreeView::doubleClicked, [&](const QModelIndex &index) {
+        QString path = model->filePath(index);
+
         if (model->isDir(index)) {
             tree->setRootIndex(index);
-            QString path = model->filePath(index);
             pathLineEdit->setText(path);
+        } else {
+            // Если это файл, открыть его
+            if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path))) {
+                QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Could not open the file."));
+            }
         }
     });
+
 
     QObject::connect(pathLineEdit, &QLineEdit::returnPressed, [&]() {
         QString newPath = pathLineEdit->text();
@@ -470,6 +472,38 @@ int main(int argc, char *argv[])
             tree->setRootIndex(model->index(newPath));
         } else {
             QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("the specified path does not exist!"));
+        }
+    });
+
+
+    QObject::connect(openAction, &QAction::triggered, [&]() {
+        // Открытие диалогового окна для выбора файла или папки
+        QString selectedPath = QFileDialog::getOpenFileName(&mainWindow, QObject::tr("Open Archive"), QDir::homePath(), QObject::tr("Archives (*.zip *.tar);;All Files (*.*)"));
+
+        if (!selectedPath.isEmpty()) {
+            // Проверка, является ли выбранный путь существующим
+            QFileInfo fileInfo(selectedPath);
+            if (fileInfo.exists()) {
+                if (fileInfo.isDir()) {
+                    // Если это папка, установить её как корень дерева
+                    tree->setRootIndex(model->index(selectedPath));
+                    pathLineEdit->setText(selectedPath);
+                } else {
+                    // Если это файл, получить его родительскую директорию
+                    QString parentDir = fileInfo.absolutePath();
+                    tree->setRootIndex(model->index(parentDir));
+                    pathLineEdit->setText(parentDir);
+
+                    // Автоматическое выделение файла в дереве
+                    QModelIndex fileIndex = model->index(selectedPath);
+                    if (fileIndex.isValid()) {
+                        tree->selectionModel()->select(fileIndex, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+                        tree->scrollTo(fileIndex); // Прокрутка до выбранного элемента
+                    }
+                }
+            } else {
+                QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("The selected path does not exist."));
+            }
         }
     });
 
@@ -536,6 +570,264 @@ int main(int argc, char *argv[])
     });
 
 
+    QString copiedPath;
+
+    // Действие "Копировать"
+    QObject::connect(copyAction, &QAction::triggered, [&]() {
+        QModelIndex selectedIndex = tree->currentIndex(); // Получаем текущий выбранный элемент
+        if (!selectedIndex.isValid()) {
+            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("No file or folder selected."));
+            return;
+        }
+
+        QFileSystemModel *model = qobject_cast<QFileSystemModel *>(tree->model());
+        if (!model) return;
+
+        copiedPath = model->filePath(selectedIndex); // Сохраняем путь выбранного элемента
+        QApplication::clipboard()->setText(copiedPath); // Записываем путь в буфер обмена
+    });
+
+    // Действие "Вставить"
+    QObject::connect(pasteAction, &QAction::triggered, [&]() {
+        QModelIndex selectedIndex = tree->currentIndex();
+        if (!selectedIndex.isValid()) {
+            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Select a destination folder to paste."));
+            return;
+        }
+
+        QFileSystemModel *model = qobject_cast<QFileSystemModel *>(tree->model());
+        if (!model) return;
+
+        QString destinationPath = model->filePath(selectedIndex); // Получаем путь папки назначения
+        QFileInfo destinationInfo(destinationPath);
+
+        if (!destinationInfo.isDir()) {
+            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Please select a folder for pasting."));
+            return;
+        }
+
+        if (copiedPath.isEmpty()) {
+            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("No file or folder copied."));
+            return;
+        }
+
+        QFileInfo copiedInfo(copiedPath);
+        QString newPath = destinationPath + "/" + copiedInfo.fileName();
+
+        if (copiedInfo.isDir()) {
+            // Копирование папки рекурсивно
+            if (!copyDirectoryContents(copiedPath, newPath)) {
+                QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Failed to copy folder contents."));
+                return;
+            }
+        } else if (copiedInfo.isFile()) {
+            // Копирование файла
+            if (!QFile::copy(copiedPath, newPath)) {
+                QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Failed to copy file."));
+                return;
+            }
+        }
+
+
+        QMessageBox::information(&mainWindow, QObject::tr("Success"), QObject::tr("Item pasted successfully."));
+    });
+
+
+    // Действие "Выделить всё"
+    QObject::connect(highliteAllAction, &QAction::triggered, [&]() {
+        tree->selectAll(); // Выделяет все элементы
+    });
+
+    // Действие "Снять выделение"
+    QObject::connect(noneHighliteAction, &QAction::triggered, [&]() {
+        tree->clearSelection(); // Снимает выделение со всех элементов
+    });
+
+
+    QObject::connect(deleteAction, &QAction::triggered, [&]() {
+        QModelIndexList selectedIndexes = tree->selectionModel()->selectedIndexes();
+
+        QFileSystemModel *model = dynamic_cast<QFileSystemModel *>(tree->model());
+        if (!model) return;
+
+        for (const QModelIndex &index : selectedIndexes) {
+            QString filePath = model->filePath(index);
+
+            QFileInfo fileInfo(filePath);
+            if (fileInfo.isDir()) {
+                QDir dir(filePath);
+                if (!dir.removeRecursively()) {
+                    qWarning() << "Failed to delete folder:" << filePath;
+                }
+            } else if (fileInfo.isFile()) {
+                QFile file(filePath);
+                if (!file.remove()) {
+                    qWarning() << "Failed to delete file:" << filePath;
+                }
+            }
+        }
+
+        // Обновляем модель, сбросив корневой путь
+        QString rootPath = model->rootPath();
+        model->setRootPath(QString());  // Сброс пути
+        model->setRootPath(rootPath);   // Установка обратно
+    });
+
+
+    QObject::connect(deleteButton, &QToolButton::clicked, [&]() {
+        QModelIndexList selectedIndexes = tree->selectionModel()->selectedIndexes();
+
+        QFileSystemModel *model = dynamic_cast<QFileSystemModel *>(tree->model());
+        if (!model) return;
+
+        for (const QModelIndex &index : selectedIndexes) {
+            QString filePath = model->filePath(index);
+
+            QFileInfo fileInfo(filePath);
+            if (fileInfo.isDir()) {
+                QDir dir(filePath);
+                if (!dir.removeRecursively()) {
+                    qWarning() << "Failed to delete folder:" << filePath;
+                }
+            } else if (fileInfo.isFile()) {
+                QFile file(filePath);
+                if (!file.remove()) {
+                    qWarning() << "Failed to delete file:" << filePath;
+                }
+            }
+        }
+
+        // Обновляем модель, сбросив корневой путь
+        QString rootPath = model->rootPath();
+        model->setRootPath(QString());  // Сброс пути
+        model->setRootPath(rootPath);   // Установка обратно
+    });
+
+
+    QObject::connect(showAction, &QAction::triggered, [&]() {
+        QModelIndex index = tree->currentIndex();  // Получаем индекс текущего выбранного элемента
+
+        if (!index.isValid()) return;  // Проверяем, что индекс действителен
+
+        QString path = model->filePath(index);
+
+        if (model->isDir(index)) {
+            tree->setRootIndex(index);  // Меняем корень дерева на выбранный каталог
+            pathLineEdit->setText(path); // Отображаем путь в текстовом поле
+        } else {
+            // Если это файл, пробуем его открыть
+            if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path))) {
+                QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Could not open the file."));
+            }
+        }
+    });
+
+    QObject::connect(viewButton, &QToolButton::clicked, [&]() {
+        QModelIndex index = tree->currentIndex();  // Получаем индекс текущего выбранного элемента
+
+        if (!index.isValid()) return;  // Проверяем, что индекс действителен
+
+        QString path = model->filePath(index);
+
+        if (model->isDir(index)) {
+            tree->setRootIndex(index);  // Меняем корень дерева на выбранный каталог
+            pathLineEdit->setText(path); // Отображаем путь в текстовом поле
+        } else {
+            // Если это файл, пробуем его открыть
+            if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path))) {
+                QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Could not open the file."));
+            }
+        }
+    });
+
+
+    QObject::connect(infoAction, &QAction::triggered, [&]() {
+        QModelIndex index = tree->currentIndex();  // Получаем текущий выбранный элемент в QTreeView
+
+        if (!index.isValid()) {
+            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("No item selected."));
+            return;
+        }
+
+        QFileInfo fileInfo = model->fileInfo(index);  // Получаем информацию о файле или папке
+
+        // Если это папка, считаем количество элементов внутри
+        QString info;
+        if (fileInfo.isDir()) {
+            QDir dir(fileInfo.absoluteFilePath());
+            QStringList entries = dir.entryList(QDir::NoDotAndDotDot | QDir::Files | QDir::Dirs);  // Все файлы и папки, исключая "." и ".."
+            int itemCount = entries.count();
+
+            info = QObject::tr("Name: %1\n"
+                               "Path: %2\n"
+                               "Type: Directory\n"
+                               "Item count: %3\n"
+                               "Last Modified: %4")
+                       .arg(fileInfo.fileName())
+                       .arg(fileInfo.absoluteFilePath())
+                       .arg(itemCount)
+                       .arg(fileInfo.lastModified().toString());
+        } else {
+            info = QObject::tr("Name: %1\n"
+                               "Path: %2\n"
+                               "Size: %3 bytes\n"
+                               "Type: File\n"
+                               "Last Modified: %4")
+                       .arg(fileInfo.fileName())
+                       .arg(fileInfo.absoluteFilePath())
+                       .arg(fileInfo.size())
+                       .arg(fileInfo.lastModified().toString());
+        }
+
+        // Отображаем информацию в сообщении
+        QMessageBox::information(&mainWindow, QObject::tr("Properties"), info);
+    });
+
+
+    QObject::connect(infoButton, &QToolButton::clicked, [&]() {
+        QModelIndex index = tree->currentIndex();  // Получаем текущий выбранный элемент в QTreeView
+
+        if (!index.isValid()) {
+            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("No item selected."));
+            return;
+        }
+
+        QFileInfo fileInfo = model->fileInfo(index);  // Получаем информацию о файле или папке
+
+        // Если это папка, считаем количество элементов внутри
+        QString info;
+        if (fileInfo.isDir()) {
+            QDir dir(fileInfo.absoluteFilePath());
+            QStringList entries = dir.entryList(QDir::NoDotAndDotDot | QDir::Files | QDir::Dirs);  // Все файлы и папки, исключая "." и ".."
+            int itemCount = entries.count();
+
+            info = QObject::tr("Name: %1\n"
+                      "Path: %2\n"
+                      "Type: Directory\n"
+                      "Item count: %3\n"
+                      "Last Modified: %4")
+                       .arg(fileInfo.fileName())
+                       .arg(fileInfo.absoluteFilePath())
+                       .arg(itemCount)
+                       .arg(fileInfo.lastModified().toString());
+        } else {
+            info = QObject::tr("Name: %1\n"
+                      "Path: %2\n"
+                      "Size: %3 bytes\n"
+                      "Type: File\n"
+                      "Last Modified: %4")
+                       .arg(fileInfo.fileName())
+                       .arg(fileInfo.absoluteFilePath())
+                       .arg(fileInfo.size())
+                       .arg(fileInfo.lastModified().toString());
+        }
+
+        // Отображаем информацию в сообщении
+        QMessageBox::information(&mainWindow, QObject::tr("Properties"), info);
+    });
+
+
+
     QWidget *centralWidget = new QWidget();
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
 
@@ -547,7 +839,7 @@ int main(int argc, char *argv[])
     mainLayout->addWidget(tree);
     mainWindow.setCentralWidget(centralWidget);
 
-    mainWindow.setWindowTitle(QObject::tr("Antim Archiver"));
+    mainWindow.setWindowTitle(QObject::tr("AntimAR"));
     mainWindow.resize(1280,720);
     mainWindow.show();
 

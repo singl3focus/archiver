@@ -6,7 +6,6 @@
         <file>icons/extract.svg</file>
         <file>icons/information.svg</file>
         <file>icons/search.svg</file>
-        <file>icons/test.svg</file>
         <file>icons/view.svg</file>
     </qresource>
 </RCC>
