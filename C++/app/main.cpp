@@ -26,6 +26,7 @@
 #include <QClipboard>
 #include <QItemDelegate>
 #include <QFileInfo>
+#include <QIcon>
 
 void runArchiverUtility(const QString &src, const QString &dst, const QString &format) {
     QProcess *process = new QProcess;
@@ -198,7 +199,9 @@ bool copyDirectoryContents(const QString &sourceDirPath, const QString &destinat
 
 int main(int argc, char *argv[])
 {
-    QApplication a(argc, argv);
+    QApplication app(argc, argv);
+
+    app.setWindowIcon(QIcon(":/icons/icons/appIcon.svg"));
 
     QMainWindow mainWindow;
 
@@ -233,7 +236,7 @@ int main(int argc, char *argv[])
     QAction *exitAction = new QAction(QObject::tr("&Exit"), &mainWindow);
     fileMenu->addAction(exitAction);
 
-    QObject::connect(exitAction, &QAction::triggered, &a, &QApplication::quit);
+    QObject::connect(exitAction, &QAction::triggered, &app, &QApplication::quit);
 
 
 
@@ -843,5 +846,5 @@ int main(int argc, char *argv[])
     mainWindow.resize(1280,720);
     mainWindow.show();
 
-    return a.exec();
+    return app.exec();
 }

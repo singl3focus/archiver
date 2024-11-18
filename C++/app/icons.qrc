@@ -7,5 +7,6 @@
         <file>icons/information.svg</file>
         <file>icons/search.svg</file>
         <file>icons/view.svg</file>
+        <file>icons/appIcon.svg</file>
     </qresource>
 </RCC>
