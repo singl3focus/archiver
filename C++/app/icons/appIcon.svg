@@ -2,10 +2,6 @@
 <circle cx="128" cy="128" r="128" fill="#622CA4"/>
 <circle cx="128.5" cy="128.5" r="116.5" fill="#8C69B6"/>
 <circle cx="128" cy="128" r="105" fill="#622CA4"/>
-<path d="M128.5 37L64 199H104L97 189H85L128.5 73L172 189H160L153 199H193L128.5 37Z" fill="white" stroke="white"/>
-<path d="M132 156.5V180H135V170H141L144.5 180H147.5C147.5 180 145.774 174.342 143.5 171.5C141.5 169 140.5 170 144 170C147.5 170 147.536 156.5 144 156.5L132 156.5Z" fill="white" stroke="white"/>
-<path d="M135 158.5V168H142C145 168 145 158.5 142 158.5H135Z" fill="#622CA4" stroke="white"/>
-<path d="M143.5 131H113.5L108.5 144H148.5L143.5 131Z" fill="white" stroke="white"/>
-<path d="M114.5 162.5L110 179.5H112.5L114 173.5H123.5L125 179.5H128L122.5 156.5H122H118C118 156.5 116.5 156.5 116 158L114.5 162.5Z" fill="white" stroke="white"/>
-<path d="M123.5 171L121 159H117.5L114.5 171H123.5Z" fill="#622CA4" stroke="white"/>
+<path d="M128.5 27L56 199H106L99 187H85L128.5 73L172 187H158L151 199H201L128.5 27Z" fill="white" stroke="white"/>
+<path d="M143.5 131H113.5L106.5 150H150.5L143.5 131Z" fill="white" stroke="white"/>
 </svg>
