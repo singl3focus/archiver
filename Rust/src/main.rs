@@ -1,7 +1,6 @@
 extern crate clap;
 
-use clap::Parser;
-use clap::ValueEnum;
+use clap::{Parser, ValueEnum};
 
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
@@ -12,14 +11,21 @@ use zip_archive::Archiver;
 
 use std::fs::File;
 use std::io;
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/* CONST */
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
+const ZIP: &str = "zip";
+const TAR: &str = "tar";
+const TARGZ: &str = "tar.gz";
+
+/* APP */
+
 #[derive(Parser)]
 #[command(name = "antim")]
-#[command(version = "0.5.0")]
+#[command(version = "0.5.1")]
 #[command(about = "Simple archive app")]
 #[command(long_about = None)]
 #[command(author = "Tursunov Imran <tursunov.imran@mail.ru>")]
@@ -33,7 +39,7 @@ struct Cli {
     #[arg(short, long, aliases = vec!["dst"], value_name = "Destination path")]
     destination: PathBuf,
 
-    #[arg(short, long, value_parser = ["zip", "tar"],
+    #[arg(short, long, value_parser = [ZIP, TAR],
         value_name = "Data format. Needed only for compressing data.\n In case there is a decompression, data format will be define automatically")]
     format: Option<String>,
     // --force - Allow do operation with replace existed
@@ -78,8 +84,25 @@ fn main() {
 
     cli.validate();
 
-    let src: &str = cli.source.to_str().unwrap(); // [DANGER] CALL PANICS
-    let dst: &str = cli.destination.to_str().unwrap(); // [DANGER] CALL PANICS
+    let src_path: &str;
+    let src: std::result::Result<&str, &str> = cli.source.to_str().ok_or("Invalid source path");
+    match src {
+        Ok(s) => src_path = s,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+
+    let dst_path: &str;
+    let dst: std::result::Result<&str, &str> = cli.destination.to_str().ok_or("Invalid destination path");
+    match dst {
+        Ok(d) => dst_path = d,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
 
     let df: String;
     match cli.format {
@@ -88,11 +111,11 @@ fn main() {
     }
 
     match cli.mode {
-        Mode::Compress => match compression_distribution(src, dst, &df) {
+        Mode::Compress => match compression_distribution(src_path, dst_path, &df) {
             Ok(_) => println!("Compress data has been successful."),
             Err(e) => eprintln!("Error: Compress data has been unsuccessful: {e}."),
         },
-        Mode::Decompress => match decompression_distribution(src, dst) {
+        Mode::Decompress => match decompression_distribution(src_path, dst_path) {
             Ok(_) => println!("Decompress data has been successful."),
             Err(e) => eprintln!("Error: Decompress data has been unsuccessful: {e}."),
         },
@@ -110,8 +133,8 @@ fn compression_distribution(src_path: &str, dst_path: &str, dataformat: &String)
     }
 
     match dataformat.to_lowercase().as_str() {
-        "zip" => compress_to_zip(src_path, dst_path),
-        "tar" => commpress_to_tar(src_path, dst_path),
+        ZIP => compress_to_zip(src_path, dst_path),
+        TAR => compress_to_tar(src_path, dst_path),
         _ => Err(Box::new(std::io::Error::new(
             std::io::ErrorKind::Other,
             format!("Unsupported dataformat: {}", dataformat),
@@ -137,7 +160,7 @@ fn compress_to_zip(src_path: &str, dst_path: &str) -> Result<()> {
     BUGS:
     - If 'src_path' is file, commpress is bug
 */
-fn commpress_to_tar(src_path: &str, dst_path: &str) -> Result<()> {
+fn compress_to_tar(src_path: &str, dst_path: &str) -> Result<()> {
     let src: PathBuf = PathBuf::from(src_path);
     let mut dest: PathBuf = PathBuf::from(dst_path);
 
@@ -148,26 +171,35 @@ fn commpress_to_tar(src_path: &str, dst_path: &str) -> Result<()> {
     
 
     if dest.is_dir() {
-        dest.push(format!("{}.tar.gz", file_name_str)); // [MAGIC]
+        dest.push(format!("{file_name_str}.{TARGZ}")); // [MAGIC]
     } else {
-        dest.set_file_name(format!("{}.tar.gz", file_name_str)); // [MAGIC]
+        dest.set_file_name(format!("{file_name_str}.{TARGZ}")); // [MAGIC]
     }
 
+    if !dest.parent().unwrap().exists() {
+        std::fs::create_dir_all(dest.parent().unwrap())?;
+    }
 
-    let tar_gz: File = File::create(&dest)?;
-
+    let tar_gz: File = File::create(&dest)?;    
     let enc: GzEncoder<File> = GzEncoder::new(tar_gz, Compression::default());
-    let mut tar: tar::Builder<GzEncoder<File>> = tar::Builder::new(enc);
+    let mut tar: tar::Builder<GzEncoder<File>> = tar::Builder::new(enc);    
 
-    tar.append_dir_all(dst_path, src_path)?;
+    match tar.append_dir_all("", &src) {
+        Ok(_) => Ok(()), 
+        Err(e) => {
+            std::fs::remove_file(&dest);
 
-    Ok(())
+            Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                e,
+            )))
+        }
+    }
 }
 /* --------------------------------------------- */
 
 fn get_base_name(path: &str) -> String {
     let parts: Vec<&str> = path.split('.').collect();
-
     String::from(parts[0])
 }
 
@@ -180,17 +212,11 @@ fn get_file_extension(filename: &str) -> Option<&str> {
 
 fn decompression_distribution(src_path: &str, dst_path: &str) -> Result<()> {
     match get_file_extension(src_path) {
-        Some(ext) => match ext {
-            "zip" => decompress_from_zip(src_path, dst_path),
-            "gz" | "tgz" | "gzip" => decompress_from_tar(src_path, dst_path),
-            _ => Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Unsupported dataformat: {}", ext),
-            ))),
-        },
-        None => Err(Box::new(std::io::Error::new(
+        Some("zip") => decompress_from_zip(src_path, dst_path),
+        Some(ext) if ["gz", "tgz", "gzip"].contains(&ext) => decompress_from_tar(src_path, dst_path),
+        _ => Err(Box::new(std::io::Error::new(
             std::io::ErrorKind::Other,
-            "Extension not found",
+            format!("Unsupported dataformat or missing extension: {}", src_path),
         ))),
     }
 }
@@ -212,6 +238,11 @@ fn decompress_from_zip(src_path: &str, dst_path: &str) -> Result<()> {
         };
 
         let full_outpath: PathBuf = PathBuf::from(dst_path).join(outpath);
+
+        // if full_outpath.exists() {
+        //     eprintln!("Warning: File {} already exists. Skipping.", full_outpath.display());
+        //     continue; // Пропускаем файл, если он уже существует
+        // } TODO: add force flag
         
         if file.is_dir() {
             std::fs::create_dir_all(full_outpath)?;
@@ -230,6 +261,9 @@ fn decompress_from_zip(src_path: &str, dst_path: &str) -> Result<()> {
     Ok(())
 }
 
+// BUG: In decompress_from_tar(): If the target directory already exists,
+// files will be extracted into it. There is a bug that, if the file already exists, it will overwrite the content.
+// To prevent that, consider adding a check and prompt or rename existing files if necessary.
 fn decompress_from_tar(src_path: &str, dst_path: &str) -> Result<()> {
     let tar_gz: File = File::open(src_path)?;
 
