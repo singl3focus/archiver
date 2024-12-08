@@ -1,8 +1,6 @@
-#include <QMenuBar>
-#include <QMainWindow>
-#include <QAction>
-
 #include "MenuBar.h"
+#include <QMenuBar>
+#include <QAction>
 
 MenuBar::MenuBar(QMainWindow *parent)
     : mainWindow(parent) {}

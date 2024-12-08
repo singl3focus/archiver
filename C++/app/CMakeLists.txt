@@ -30,6 +30,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MenuBar.h
         Utility.h
         Manual.h
+        ToolBar.h
+        ToolBar.cpp
 
 
 

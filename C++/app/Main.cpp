@@ -33,6 +33,7 @@
 #include "Utility.h"
 #include "Manual.h"
 #include "MenuBar.h"
+#include "ToolBar.h"
 
 class CustomFileSystemModel : public QFileSystemModel {
 public:
@@ -94,6 +95,7 @@ int main(int argc, char *argv[])
 
     MenuBar menu(&mainWindow);
 
+    // Меню
     menu.setupMenuBar(mainWindow.menuBar());
 
     QAction *exitAction = menu.getExitAction();
@@ -112,41 +114,12 @@ int main(int argc, char *argv[])
     });
 
 
-
-    //Панель инструментов
+    // Панель инструментов
     QToolBar *toolBar = new QToolBar(&mainWindow);
     mainWindow.addToolBar(toolBar);
 
-    QToolButton *addButton = new QToolButton(&mainWindow);
-    addButton->setText(QObject::tr("Add"));
-    addButton->setIcon(QIcon (":/icons/icons/add.svg"));
-    addButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    toolBar->addWidget(addButton);
-
-    QToolButton *extractButton = new QToolButton(&mainWindow);
-    extractButton->setText(QObject::tr("Extract to"));
-    extractButton->setIcon(QIcon (":/icons/icons/extract.svg"));
-    extractButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    toolBar->addWidget(extractButton);
-
-    QToolButton *viewButton = new QToolButton(&mainWindow);
-    viewButton->setText(QObject::tr("View"));
-    viewButton->setIcon(QIcon (":/icons/icons/view.svg"));
-    viewButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    toolBar->addWidget(viewButton);
-
-    QToolButton *deleteButton = new QToolButton(&mainWindow);
-    deleteButton->setText(QObject::tr("Delete"));
-    deleteButton->setIcon(QIcon (":/icons/icons/delete.svg"));
-    deleteButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    toolBar->addWidget(deleteButton);
-
-    QToolButton *infoButton = new QToolButton(&mainWindow);
-    infoButton->setText(QObject::tr("Information"));
-    infoButton->setIcon(QIcon (":/icons/icons/information.svg"));
-    infoButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    toolBar->addWidget(infoButton);
-
+    ToolBar tools(&mainWindow);
+    tools.setupToolBar(toolBar);
 
 
     //Стили
@@ -337,7 +310,7 @@ int main(int argc, char *argv[])
         }
     });
 
-
+    QToolButton *addButton = tools.getAddButton();
     QObject::connect(addButton, &QToolButton::clicked, [&]() {
         QModelIndex selectedIndex = tree->selectionModel()->currentIndex();
         if (selectedIndex.isValid() && model->isDir(selectedIndex)) {
@@ -365,6 +338,7 @@ int main(int argc, char *argv[])
     });
 
 
+    QToolButton *extractButton = tools.getExtractButton();
     QObject::connect(extractButton, &QToolButton::clicked, [&]() {
         QModelIndex selectedIndex = tree->selectionModel()->currentIndex();
         if (selectedIndex.isValid() && !model->isDir(selectedIndex)) {
@@ -524,6 +498,7 @@ int main(int argc, char *argv[])
     });
 
 
+    QToolButton *deleteButton = tools.getDeleteButton();
     QObject::connect(deleteButton, &QToolButton::clicked, [&]() {
         QModelIndexList selectedIndexes = tree->selectionModel()->selectedIndexes();
 
@@ -573,6 +548,8 @@ int main(int argc, char *argv[])
         }
     });
 
+
+    QToolButton *viewButton = tools.getViewButton();
     QObject::connect(viewButton, &QToolButton::clicked, [&]() {
         QModelIndex index = tree->currentIndex();  // Получаем индекс текущего выбранного элемента
 
@@ -670,6 +647,7 @@ int main(int argc, char *argv[])
     });
 
 
+    QToolButton *infoButton = tools.getInfoButton();
     QObject::connect(infoButton, &QToolButton::clicked, [&]() {
         QModelIndex index = tree->currentIndex();  // Получаем текущий выбранный элемент в QTreeView
 

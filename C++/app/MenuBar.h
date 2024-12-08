@@ -2,8 +2,6 @@
 #define MENUBAR_H
 
 #include <QMainWindow>
-#include <QMenuBar>
-#include <QAction>
 
 class MenuBar {
 public:
