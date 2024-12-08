@@ -1,7 +1,6 @@
 #include <QApplication>
 #include <QTreeView>
 #include <QFileSystemModel>
-#include <QMenu>
 #include <QMenuBar>
 #include <QMainWindow>
 #include <QAction>
@@ -33,6 +32,7 @@
 
 #include "Utility.h"
 #include "Manual.h"
+#include "MenuBar.h"
 
 class CustomFileSystemModel : public QFileSystemModel {
 public:
@@ -92,81 +92,23 @@ int main(int argc, char *argv[])
 
     QMainWindow mainWindow;
 
-    QMenuBar *menuBar = mainWindow.menuBar();
-    QMenu *fileMenu = menuBar->addMenu(QObject::tr("&File"));
-    QMenu *commandsMenu = menuBar->addMenu(QObject::tr("&Commands"));
-    QMenu *helpMenu = menuBar->addMenu(QObject::tr("&Help"));
+    MenuBar menu(&mainWindow);
 
+    menu.setupMenuBar(mainWindow.menuBar());
 
-
-    //Список пунктов File
-    QAction *openAction = new QAction(QObject::tr("&Open archive"), &mainWindow);
-    openAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_O));
-    fileMenu->addAction(openAction);
-
-    QAction *copyAction = new QAction(QObject::tr("&Copy"), &mainWindow);
-    copyAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_C));
-    fileMenu->addAction(copyAction);
-
-    QAction *pasteAction = new QAction(QObject::tr("&Paste"), &mainWindow);
-    pasteAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_V));
-    fileMenu->addAction(pasteAction);
-
-    QAction *highliteAllAction = new QAction(QObject::tr("&Highlite all"), &mainWindow);
-    highliteAllAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_A));
-    fileMenu->addAction(highliteAllAction);
-
-    QAction *noneHighliteAction = new QAction(QObject::tr("&None highlite"), &mainWindow);
-    noneHighliteAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Minus));
-    fileMenu->addAction(noneHighliteAction);
-
-    QAction *exitAction = new QAction(QObject::tr("&Exit"), &mainWindow);
-    fileMenu->addAction(exitAction);
-
+    QAction *exitAction = menu.getExitAction();
     QObject::connect(exitAction, &QAction::triggered, &app, &QApplication::quit);
 
 
-
-    //Список пунктов Commands
-    QAction *addAction = new QAction(QObject::tr("&Add to an archive"), &mainWindow);
-    addAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_A));
-    commandsMenu->addAction(addAction);
-
-    QAction *extratToFolAction = new QAction(QObject::tr("&Extract to folder"), &mainWindow);
-    extratToFolAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_E));
-    commandsMenu->addAction(extratToFolAction);
-
-    QAction *showAction = new QAction(QObject::tr("&Show file contents"), &mainWindow);
-    showAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_V));
-    commandsMenu->addAction(showAction);
-
-    QAction *deleteAction = new QAction(QObject::tr("&Delete files/folders"), &mainWindow);
-    deleteAction->setShortcut(QKeySequence(Qt::Key_Delete));
-    commandsMenu->addAction(deleteAction);
-
-    QAction *renameAction = new QAction(QObject::tr("Rename files/folders&"), &mainWindow);
-    renameAction->setShortcut(QKeySequence(Qt::Key_F2));
-    commandsMenu->addAction(renameAction);
-
-    QAction *infoAction = new QAction(QObject::tr("&Show information"), &mainWindow);
-    infoAction->setShortcut(QKeySequence(Qt::ALT | Qt::Key_I));
-    commandsMenu->addAction(infoAction);
-
-
-
-    //Список пунктов Help
-    QAction *manualAction = new QAction(QObject::tr("&Manual"), &mainWindow);
-    helpMenu->addAction(manualAction);
-
+    QAction *manualAction = menu.getManualAction();
     QObject::connect(manualAction, &QAction::triggered, [&]() {
         showManualWindow(&mainWindow);
     });
 
-    QAction *aboutAction = new QAction(QObject::tr("&About the program"), &mainWindow);
-    helpMenu->addAction(aboutAction);
-
+    QAction *aboutAction = menu.getAboutAction();
     QObject::connect(aboutAction, &QAction::triggered, [&mainWindow]() {
-        QMessageBox::about(&mainWindow, QObject::tr("About the program AntimAR"), QObject::tr("AntimAR\nVersion 1.0\n\nThis program is developed to work with file archives"));
+        QMessageBox::about(&mainWindow, QObject::tr("About the program AntimAR"),
+                           QObject::tr("AntimAR\nVersion 1.0\n\nThis program is developed to work with file archives"));
     });
 
 
@@ -363,6 +305,7 @@ int main(int argc, char *argv[])
     });
 
 
+    QAction *openAction = menu.getOpenAction();
     QObject::connect(openAction, &QAction::triggered, [&]() {
         // Открытие диалогового окна для выбора файла или папки
         QString selectedPath = QFileDialog::getOpenFileName(&mainWindow, QObject::tr("Open Archive"), QDir::homePath(), QObject::tr("Archives (*.zip *.tar);;All Files (*.*)"));
@@ -408,6 +351,7 @@ int main(int argc, char *argv[])
     });
 
 
+    QAction *addAction = menu.getAddAction();
     QObject::connect(addAction, &QAction::triggered, [&]() {
         QModelIndex selectedIndex = tree->selectionModel()->currentIndex();
         if (selectedIndex.isValid() && model->isDir(selectedIndex)) {
@@ -439,6 +383,7 @@ int main(int argc, char *argv[])
     });
 
 
+    QAction *extratToFolAction = menu.getExtratToFolAction();
     QObject::connect(extratToFolAction, &QAction::triggered, [&]() {
         QModelIndex selectedIndex = tree->selectionModel()->currentIndex();
         if (selectedIndex.isValid() && !model->isDir(selectedIndex)) {
@@ -460,6 +405,7 @@ int main(int argc, char *argv[])
     QString copiedPath;
 
     // Действие "Копировать"
+    QAction *copyAction = menu.getCopyAction();
     QObject::connect(copyAction, &QAction::triggered, [&]() {
         QItemSelectionModel *selectionModel = tree->selectionModel(); // Получаем модель выделения
         QModelIndexList selectedIndexes = selectionModel->selectedRows(); // Получаем список всех выделенных строк
@@ -487,6 +433,7 @@ int main(int argc, char *argv[])
 
 
     // Действие "Вставить"
+    QAction *pasteAction = menu.getPasteAction();
     QObject::connect(pasteAction, &QAction::triggered, [&]() {
         QString clipboardText = QApplication::clipboard()->text();
         QStringList pathsToPaste = clipboardText.split("\n", Qt::SkipEmptyParts);
@@ -534,16 +481,19 @@ int main(int argc, char *argv[])
 
 
     // Действие "Выделить всё"
+    QAction *highliteAllAction = menu.getHighliteAllAction();
     QObject::connect(highliteAllAction, &QAction::triggered, [&]() {
         tree->selectAll(); // Выделяет все элементы
     });
 
     // Действие "Снять выделение"
+    QAction *noneHighliteAction = menu.getNoneHighliteAction();
     QObject::connect(noneHighliteAction, &QAction::triggered, [&]() {
         tree->clearSelection(); // Снимает выделение со всех элементов
     });
 
 
+    QAction *deleteAction = menu.getDeleteAction();
     QObject::connect(deleteAction, &QAction::triggered, [&]() {
         QModelIndexList selectedIndexes = tree->selectionModel()->selectedIndexes();
 
@@ -604,6 +554,7 @@ int main(int argc, char *argv[])
     });
 
 
+    QAction *showAction = menu.getShowAction();
     QObject::connect(showAction, &QAction::triggered, [&]() {
         QModelIndex index = tree->currentIndex();  // Получаем индекс текущего выбранного элемента
 
@@ -642,6 +593,7 @@ int main(int argc, char *argv[])
 
 
     // Подключаем действие для переименования
+    QAction *renameAction = menu.getRenameAction();
     QObject::connect(renameAction, &QAction::triggered, [&]() {
         QModelIndex index = tree->currentIndex(); // Получаем текущий выбранный элемент
 
@@ -674,6 +626,7 @@ int main(int argc, char *argv[])
     });
 
 
+    QAction *infoAction = menu.getInfoAction();
     QObject::connect(infoAction, &QAction::triggered, [&]() {
         QModelIndex index = tree->currentIndex();  // Получаем текущий выбранный элемент в QTreeView
 
