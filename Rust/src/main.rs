@@ -9,19 +9,49 @@ use tar::Archive;
 
 use zip_archive::Archiver;
 
+use aes::Aes256;
+use aes::cipher::{KeyIvInit, StreamCipher};
+use hex::decode;
+
 use std::fs::File;
-use std::io;
+use std::{io, str};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-/* CONST */
+/* ____________________[CONST]____________________ */
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+const DEFAULT_ARCHIVE_NAME: &str = "archive";
+
+const ENCRYPT: &str = "enc";
+
+const INIT_VECTOR: &str = "1a2b3c4d5e6f70717273747576777879"; // Test Usage, Go to GitHub :)
 
 const ZIP: &str = "zip";
 const TAR: &str = "tar";
 const TARGZ: &str = "tar.gz";
 
-/* APP */
+
+fn call_err<T: std::fmt::Display>(err_value: T) -> ! {
+    eprintln!("Error: {err_value}");
+    std::process::exit(1);
+}
+
+fn get_base_name(filename: &str) -> String {
+    let parts: Vec<&str> = filename.split('.').collect();
+    String::from(parts[0])
+}
+
+// get_file_extension return last extension in filepath
+fn get_file_extension(filepath: &str) -> Option<&str> {
+    Path::new(filepath)
+        .extension()
+        .and_then(|ext| ext.to_str())   // Преобразуем в строку
+                                                // .map(|ext| ext.to_string()) // Возвращаем расширение как String
+}
+
+/* ____________________[APP]____________________ */
 
 #[derive(Parser)]
 #[command(name = "antim")]
@@ -42,6 +72,11 @@ struct Cli {
     #[arg(short, long, value_parser = [ZIP, TAR],
         value_name = "Data format. Needed only for compressing data.\n In case there is a decompression, data format will be define automatically")]
     format: Option<String>,
+
+    #[arg(short, long, aliases = vec!["pass"],
+        value_name = "Password. It is necessary to encrypt a new archive or decrypt an existing archive.")]
+    password: Option<String>,
+    
     // --force - Allow do operation with replace existed
 
     // #[command(subcommand)]
@@ -56,19 +91,6 @@ struct Cli {
 //     },
 // }
 
-impl Cli {
-    fn validate(&self) {
-        if !(self.source.exists()) {
-            eprintln!("Error: Invalid source path.");
-            std::process::exit(1);
-        }
-        if self.destination.is_file() {
-            eprintln!("Error: Destination path must be directory, not file.");
-            std::process::exit(1);
-        }
-    }
-}
-
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Mode {
     // Compress data
@@ -77,152 +99,282 @@ enum Mode {
     Decompress,
 }
 
+impl Cli {
+    fn validate(&self) {
+        if !(self.source.exists()) {
+            call_err("Invalid source path.");
+        }
+
+        if self.destination.is_file() {
+            call_err("Destination path must be directory, not file.");
+        }
+
+        if self.mode == Mode::Compress && self.format == None {
+            call_err("Data format is empty");
+        }
+    }
+}
+
+
 /* --------------------------------------------- */
 
 fn main() {
     let cli: Cli = Cli::parse();
-
     cli.validate();
 
-    let src_path: &str;
-    let src: std::result::Result<&str, &str> = cli.source.to_str().ok_or("Invalid source path");
-    match src {
-        Ok(s) => src_path = s,
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            std::process::exit(1);
-        }
-    }
+    let src: std::result::Result<&str, &str>  = cli.source.to_str().ok_or("Invalid source path");
+    let src_path: &str = match src {
+        Ok(s) => s,
+        Err(e) => call_err(e),
+    };
 
-    let dst_path: &str;
     let dst: std::result::Result<&str, &str> = cli.destination.to_str().ok_or("Invalid destination path");
-    match dst {
-        Ok(d) => dst_path = d,
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            std::process::exit(1);
-        }
-    }
+    let dst_path: &str = match dst {
+        Ok(d) => d,
+        Err(e) => call_err(e),
+    };
 
-    let df: String;
-    match cli.format {
-        Some(dataformat) => df = dataformat,
-        None => df = String::from(""),
-    }
+    let df: String = match cli.format {
+        Some(dataformat) => dataformat,
+        None => "".to_string(),
+    };
+
+    let pass: String = match cli.password {
+        Some(password) => password,
+        None => "".to_string(),
+    };
 
     match cli.mode {
-        Mode::Compress => match compression_distribution(src_path, dst_path, &df) {
+        Mode::Compress => match compression_distribution(src_path, dst_path, &df, pass) {
             Ok(_) => println!("Compress data has been successful."),
-            Err(e) => eprintln!("Error: Compress data has been unsuccessful: {e}."),
+            Err(e) => call_err(format!("Compress data has been unsuccessful: {e}.")),
         },
-        Mode::Decompress => match decompression_distribution(src_path, dst_path) {
+        Mode::Decompress => match decompression_distribution(src_path, dst_path, pass) {
             Ok(_) => println!("Decompress data has been successful."),
-            Err(e) => eprintln!("Error: Decompress data has been unsuccessful: {e}."),
+            Err(e) => call_err(format!("Decompress data has been unsuccessful: {e}.")),
         },
+    }
+}
+
+fn compression_distribution(src_path: &str, dst_path: &str, dataformat: &String, password: String) -> Result<()> {
+    let is_encryption_needed: bool = !password.is_empty();
+    
+    let created_archive_path: String = match dataformat.to_lowercase().as_str() {
+        ZIP => compress_to_zip(src_path, dst_path)?,
+        TAR => compress_to_tar(src_path, dst_path)?,
+        _ => return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Unsupported dataformat: {}", dataformat),
+        ))),
+    };
+
+    if is_encryption_needed {
+        let encrypted_path: String = format!("{created_archive_path}.{ENCRYPT}");
+
+        let mut key = password.as_bytes().to_vec();
+        while key.len() < 32 {
+            key.push(0); // Дополняем ключ до 32 байтов
+        }
+        if key.len() > 32 {
+            key = key[..32].to_vec(); // Обрезаем лишние байты
+        }
+
+        // let key: Vec<u8> = decode(password)?; // Требует Hex кодировку
+        let iv: Vec<u8> = decode(INIT_VECTOR)?;
+        
+        encrypt_file(created_archive_path.as_str(), encrypted_path.as_str(), &key, &iv)?; // Шифруем и сохраняем
+
+        // std::fs::remove_file(dst_path)?; // Удаляем незащищённый файл. // TODO: Fix error - Access is denied. (os error 5).
+    }
+
+    Ok(())
+}
+
+
+fn decompression_distribution(src_path: &str, dst_path: &str, password: String) -> Result<()> {
+    let mut src_file_ext = match get_file_extension(src_path) {
+        Some(ext) => ext,
+        None => return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("There is no extension in the source data: {}", src_path),
+        )))
+    };
+
+    let new_src_path: &str = match src_file_ext {
+        ENCRYPT => {
+            if password.is_empty() {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("File is encrypted but password is not specified: {}", src_path),
+                )));
+            }
+    
+            let mut key = password.as_bytes().to_vec();
+            while key.len() < 32 {
+                key.push(0); // Дополняем ключ до 32 байтов
+            }
+            if key.len() > 32 {
+                key = key[..32].to_vec(); // Обрезаем лишние байты
+            }
+            // let key = decode(password)?;
+            let iv = decode(INIT_VECTOR)?;
+    
+            // Убираем расширение ".enc"
+            let decrypted_path = src_path.trim_end_matches(format!(".{ENCRYPT}").as_str());
+            decrypt_file(src_path, decrypted_path, &key, &iv)?;
+            
+            // TODO: add remove encrypted file 
+    
+            // Меняем расширение зашифрованного файла. А также путь с зашифрованного файла на расшифрованный  
+            src_file_ext = get_file_extension(decrypted_path).unwrap(); // * Call panic.
+
+            decrypted_path
+        },
+        _ => src_path
+    };
+        
+    // if src_file_ext == ENCRYPT {
+    //     if password.is_empty() {
+    //         return Err(Box::new(std::io::Error::new(
+    //             std::io::ErrorKind::Other,
+    //             format!("File is encrypted but password is not specified: {}", src_path),
+    //         )));
+    //     }
+
+    //     let mut key = password.as_bytes().to_vec();
+    //     while key.len() < 32 {
+    //         key.push(0); // Дополняем ключ до 32 байтов
+    //     }
+    //     if key.len() > 32 {
+    //         key = key[..32].to_vec(); // Обрезаем лишние байты
+    //     }
+    //     // let key = decode(password)?;
+    //     let iv = decode(INIT_VECTOR)?;
+
+    //     // Убираем расширение ".enc"
+    //     let decrypted_path = src_path.trim_end_matches(format!(".{ENCRYPT}").as_str());
+    //     decrypt_file(src_path, decrypted_path, &key, &iv)?;
+        
+    //     // TODO: add remove encrypted file 
+
+    //     // Меняем расширение зашифрованного файла. А также путь с зашифрованного файла на расшифрованный  
+    //     src_file_ext = get_file_extension(decrypted_path).unwrap(); // * Call panic.
+    // }
+
+    match src_file_ext {
+        ZIP => decompress_from_zip(new_src_path, dst_path),
+        "gz" | "tgz" | "gzip" => decompress_from_tar(new_src_path, dst_path),
+        _ => Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Unsupported dataformat: {}", src_file_ext),
+        ))),
     }
 }
 
 /* --------------------------------------------- */
 
-fn compression_distribution(src_path: &str, dst_path: &str, dataformat: &String) -> Result<()> {
-    if dataformat.is_empty() {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Data format is empty",
-        )));
-    }
+// use zip::{ZipWriter, CompressionMethod, write::FileOptions};
+// use std::fs::File;
+// use std::path::Path;
 
-    match dataformat.to_lowercase().as_str() {
-        ZIP => compress_to_zip(src_path, dst_path),
-        TAR => compress_to_tar(src_path, dst_path),
-        _ => Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Unsupported dataformat: {}", dataformat),
-        ))),
-    }
-}
+// fn create_archive(files: Vec<String>, output: &str) -> Result<(), Box<dyn std::error::Error>> {
+//     let path = Path::new(output);
+//     let file = File::create(path)?;
+//     let mut zip = ZipWriter::new(file);
+    
+//     for file_path in files {
+//         let options = FileOptions::default()
+//             .compression_method(CompressionMethod::Stored)  // Можно использовать CompressionMethod::Deflated
+//             .unix_permissions(0o755);
+//         zip.start_file(file_path, options)?;
+//     }
+    
+//     zip.finish()?;
+//     Ok(())
+// }
 
-fn compress_to_zip(src_path: &str, dst_path: &str) -> Result<()> {
+
+/* //TODO: BUGs:
+    - If 'src_path' is file, compress is bug (archive be empty)
+*/
+fn compress_to_zip(src_path: &str, dst_path: &str) -> Result<String> {
     let src: PathBuf = PathBuf::from(src_path);
     let dest: PathBuf = PathBuf::from(dst_path);
 
     // let thread_count: i32 = 4;
+    // archiver.set_thread_count(thread_count);
 
     let mut archiver: Archiver = Archiver::new();
     archiver.push(src); // Add dir to queue
     archiver.set_destination(dest); // Add dst path
-                                    // archiver.set_thread_count(thread_count);
 
-    archiver.archive()
+    archiver.archive()?;
+
+    Ok(dst_path.to_string())
 }
 
-/*
-    BUGS:
-    - If 'src_path' is file, commpress is bug
+/* //TODO: BUGs:
+    - If 'src_path' is file, compress is err (The directory name is invalid. (os error 267).)
 */
-fn compress_to_tar(src_path: &str, dst_path: &str) -> Result<()> {
+fn compress_to_tar(src_path: &str, dst_path: &str) -> Result<String> {
     let src: PathBuf = PathBuf::from(src_path);
     let mut dest: PathBuf = PathBuf::from(dst_path);
 
-    let file_name_str: String = match src.file_name().and_then(|s| s.to_str()) {
+    let file_name: String = match src.file_name().and_then(|s| s.to_str()) {
         Some(name) => get_base_name(name),
-        None => "archive".to_string(),
+        None => DEFAULT_ARCHIVE_NAME.to_string(),
     };
-    
 
     if dest.is_dir() {
-        dest.push(format!("{file_name_str}.{TARGZ}")); // [MAGIC]
+        dest.push(format!("{file_name}.{TARGZ}"));
     } else {
-        dest.set_file_name(format!("{file_name_str}.{TARGZ}")); // [MAGIC]
+        dest.set_file_name(format!("{file_name}.{TARGZ}")); // * Unused
     }
 
-    if !dest.parent().unwrap().exists() {
-        std::fs::create_dir_all(dest.parent().unwrap())?;
+    if !dest.parent().unwrap().exists() { // * Maybe Call panic
+        std::fs::create_dir_all(dest.parent().unwrap())?; // * Maybe Call panic
     }
 
-    let tar_gz: File = File::create(&dest)?;    
+    let tar_gz: File = File::create(&dest)?;
+
     let enc: GzEncoder<File> = GzEncoder::new(tar_gz, Compression::default());
     let mut tar: tar::Builder<GzEncoder<File>> = tar::Builder::new(enc);    
 
-    match tar.append_dir_all("", &src) {
-        Ok(_) => Ok(()), 
-        Err(e) => {
-            std::fs::remove_file(&dest);
-
-            Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                e,
-            )))
+    if src.is_dir() {
+        match tar.append_dir_all("", &src) {
+            Ok(_) => Ok(dest.to_str().unwrap().to_string()), // * Maybe Call panic 
+            Err(e) => {
+                // If compress failed -> We need delete archive file
+                std::fs::remove_file(dest)?;
+    
+                Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    e,
+                )))
+            }
         }
-    }
-}
-/* --------------------------------------------- */
-
-fn get_base_name(path: &str) -> String {
-    let parts: Vec<&str> = path.split('.').collect();
-    String::from(parts[0])
-}
-
-fn get_file_extension(filename: &str) -> Option<&str> {
-    Path::new(filename).extension().and_then(|ext| ext.to_str()) // Преобразуем в строку
-                                                                 // .map(|ext| ext.to_string()) // Возвращаем расширение как String
-}
-
-/* --------------------------------------------- */
-
-fn decompression_distribution(src_path: &str, dst_path: &str) -> Result<()> {
-    match get_file_extension(src_path) {
-        Some("zip") => decompress_from_zip(src_path, dst_path),
-        Some(ext) if ["gz", "tgz", "gzip"].contains(&ext) => decompress_from_tar(src_path, dst_path),
-        _ => Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Unsupported dataformat or missing extension: {}", src_path),
-        ))),
+    } else { //TODO:
+        // match File::open(src)
+        // match tar.append_file("", &src) {
+        //     Ok(_) => Ok(()), 
+        //     Err(e) => {
+        //         // If compress failed -> We need delete archive file
+        //         std::fs::remove_file(&dest)?;
+    
+        //         Err(Box::new(std::io::Error::new(
+        //             std::io::ErrorKind::Other,
+        //             e,
+        //         )))
+        //     }
+        // }
+        unimplemented!()
     }
 }
 
-/*
-    BUGS:
+/* --------------------------------------------- */
+
+
+/* //TODO: BUGs:
     - If dir/file already exist func will be change only content in old dir/file
 */
 fn decompress_from_zip(src_path: &str, dst_path: &str) -> Result<()> {
@@ -242,7 +394,7 @@ fn decompress_from_zip(src_path: &str, dst_path: &str) -> Result<()> {
         // if full_outpath.exists() {
         //     eprintln!("Warning: File {} already exists. Skipping.", full_outpath.display());
         //     continue; // Пропускаем файл, если он уже существует
-        // } TODO: add force flag
+        // } // TODO: add force flag
         
         if file.is_dir() {
             std::fs::create_dir_all(full_outpath)?;
@@ -261,9 +413,12 @@ fn decompress_from_zip(src_path: &str, dst_path: &str) -> Result<()> {
     Ok(())
 }
 
-// BUG: In decompress_from_tar(): If the target directory already exists,
-// files will be extracted into it. There is a bug that, if the file already exists, it will overwrite the content.
-// To prevent that, consider adding a check and prompt or rename existing files if necessary.
+/* //TODO BUGs:
+    - If the target directory already exists,
+    files will be extracted into it. There is a bug that, if the file already exists, it will overwrite the content.
+    To prevent that, consider adding a check and prompt or rename existing files if necessary.
+    - Add create parent dir from 
+*/ 
 fn decompress_from_tar(src_path: &str, dst_path: &str) -> Result<()> {
     let tar_gz: File = File::open(src_path)?;
 
@@ -274,3 +429,43 @@ fn decompress_from_tar(src_path: &str, dst_path: &str) -> Result<()> {
 
     Ok(())
 }
+
+/* --------------------------------------------- */
+
+type Aes256Ctr = ctr::Ctr128BE<Aes256>;
+
+fn encrypt_file(input_path: &str, output_path: &str, key: &[u8], iv: &[u8]) -> Result<()> {   
+    let mut file = File::open(input_path)?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)?;
+    
+    let mut cipher = Aes256Ctr::new(key.into(), iv.into());
+    cipher.apply_keystream(&mut buffer);
+    
+    let mut output_file = File::create(output_path)?; 
+    output_file.write_all(&buffer)?;
+
+    Ok(())
+}
+
+fn decrypt_file(input_path: &str, output_path: &str, key: &[u8], iv: &[u8]) -> Result<()> {
+    let mut file = File::open(input_path)?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)?;
+    
+    let mut cipher = Aes256Ctr::new(key.into(), iv.into());
+    cipher.apply_keystream(&mut buffer);
+    
+    let mut output_file = File::create(output_path)?;
+    output_file.write_all(&buffer)?;
+
+    Ok(())
+}
+
+// fn example() {
+//     let key = decode("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f").unwrap();
+//     let iv = decode(INIT_VECTOR).unwrap();
+
+//     encrypt_file("C:\\Users\\Дом\\Documents\\1GithubProjects\\Rust\\archiver\\Rust\\test\\archive\\testarchive.zip", "encrypted_archive.bin", &key, &iv).expect("Encryption failed");
+//     decrypt_file("encrypted_archive.bin", "decrypted_archive.zip", &key, &iv).expect("Decryption failed");
+// }
