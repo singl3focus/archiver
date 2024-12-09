@@ -32,6 +32,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         Manual.h
         ToolBar.h
         ToolBar.cpp
+        FileSystem.h
+        FileSystem.cpp
 
 
 

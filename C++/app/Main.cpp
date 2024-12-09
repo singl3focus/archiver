@@ -34,24 +34,7 @@
 #include "Manual.h"
 #include "MenuBar.h"
 #include "ToolBar.h"
-
-class CustomFileSystemModel : public QFileSystemModel {
-public:
-    using QFileSystemModel::QFileSystemModel;
-
-    Qt::ItemFlags flags(const QModelIndex &index) const override {
-        Qt::ItemFlags defaultFlags = QFileSystemModel::flags(index);
-
-        if (index.isValid()) {
-            QFileInfo fileInfo = this->fileInfo(index);
-            if (!fileInfo.isRoot()) {
-                return defaultFlags | Qt::ItemIsEditable;
-            }
-        }
-
-        return defaultFlags;
-    }
-};
+#include "FileSystem.h"
 
 
 bool copyDirectoryContents(const QString &sourceDirPath, const QString &destinationDirPath) {
@@ -172,111 +155,13 @@ int main(int argc, char *argv[])
 
     mainWindow.setStyleSheet(styleSheet);
 
-    CustomFileSystemModel *model = new CustomFileSystemModel();
-    model->setRootPath(QDir::rootPath());
 
+    FileSystemWidget fileSystem(&mainWindow);
 
-    QTreeView *tree = new QTreeView();
-    tree->setModel(model);
-    tree->setRootIndex(model->index("C:/"));
-    tree->setExpandsOnDoubleClick(false);
-    tree->setItemsExpandable(false);
-    tree->setRootIsDecorated(false);
-    tree->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    tree->setEditTriggers(QAbstractItemView::SelectedClicked | QAbstractItemView::EditKeyPressed);
-
-
-    // Создание QComboBox для выбора дисков
-    QComboBox *diskComboBox = new QComboBox();
-    foreach (const QFileInfo &drive, QDir::drives()) {
-        diskComboBox->addItem(drive.absolutePath());
-    }
-
-    QString initialPath = QDir::drives().isEmpty() ? QString() : QDir::drives().first().absolutePath();
-    QLineEdit *pathLineEdit = new QLineEdit();
-    pathLineEdit->setReadOnly(false);
-    pathLineEdit->setText(initialPath);
-
-    QToolButton *backButton = new QToolButton(&mainWindow);
-    backButton->setIcon(QIcon(":/icons/icons/back.svg"));
-
-    backButton->setStyleSheet(R"(
-
-        QToolButton {
-            padding: 5px 5px;
-        }
-
-        QToolButton:hover {
-
-        }
-
-    )");
-
-
-    // Логика для кнопки "back" (переход к родительской директории или к списку дисков)
-    QObject::connect(backButton, &QToolButton::clicked, [&]() {
-        QModelIndex currentRoot = tree->rootIndex();
-        QString currentPath = model->filePath(currentRoot);
-
-        // Проверка, является ли текущий путь корнем одного из дисков
-        bool isRootDrive = false;
-        foreach (const QFileInfo &drive, QDir::drives()) {
-            if (drive.absolutePath() == currentPath) {
-                isRootDrive = true;
-                break;
-            }
-        }
-
-        if (isRootDrive) {
-            // Если текущий путь — корень диска, возвращаемся к отображению списка дисков
-            tree->setRootIndex(QModelIndex());  // Сбрасываем на начальный уровень (отображение дисков)
-            pathLineEdit->clear();  // Очищаем QLineEdit, если показываем список дисков
-        } else {
-            // Иначе поднимаемся на уровень выше
-            QModelIndex parentIndex = model->parent(currentRoot);
-            if (parentIndex.isValid()) {
-                tree->setRootIndex(parentIndex);
-                pathLineEdit->setText(model->filePath(parentIndex));  // Обновляем QLineEdit на новый путь
-            }
-        }
-    });
-
-    // Логика смены диска при выборе в ComboBox
-    QObject::connect(diskComboBox, &QComboBox::currentTextChanged, [&](const QString &diskPath) {
-        if (QDir(diskPath).exists()) {
-            tree->setRootIndex(model->index(diskPath));
-            pathLineEdit->setText(diskPath);  // Обновляем QLineEdit при смене диска
-        } else {
-            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("The selected disk is not accessible!"));
-        }
-    });
-
-    // Обработка двойного клика
-    QObject::connect(tree, &QTreeView::doubleClicked, [&](const QModelIndex &index) {
-        QString path = model->filePath(index);
-
-        if (model->isDir(index)) {
-            tree->setRootIndex(index);
-            pathLineEdit->setText(path);
-        } else {
-            // Если это файл, открыть его
-            if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path))) {
-                QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("Could not open the file."));
-            }
-        }
-    });
-
-
-    QObject::connect(pathLineEdit, &QLineEdit::returnPressed, [&]() {
-        QString newPath = pathLineEdit->text();
-        QDir dir(newPath);
-        if (dir.exists()) {
-            tree->setRootIndex(model->index(newPath));
-        } else {
-            QMessageBox::warning(&mainWindow, QObject::tr("Error"), QObject::tr("the specified path does not exist!"));
-        }
-    });
-
+    QTreeView *tree = fileSystem.getTree();
+    CustomFileSystemModel *model = fileSystem.getModel();
+    QLineEdit *pathLineEdit = fileSystem.getPathLine();
+    QToolButton *backButton = fileSystem.getBackButton();
 
     QAction *openAction = menu.getOpenAction();
     QObject::connect(openAction, &QAction::triggered, [&]() {
@@ -691,7 +576,7 @@ int main(int argc, char *argv[])
     });
 
 
-
+    // Компоновка
     QWidget *centralWidget = new QWidget();
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
 
