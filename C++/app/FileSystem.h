@@ -4,7 +4,6 @@
 #include <QWidget>
 #include <QMainWindow>
 #include <QTreeView>
-#include <QComboBox>
 #include <QFileSystemModel>
 
 class CustomFileSystemModel : public QFileSystemModel {
@@ -35,11 +34,9 @@ public:
     CustomFileSystemModel* getModel() const { return model; }
     QLineEdit* getPathLine() const { return pathLineEdit; }
     QToolButton* getBackButton() const { return backButton; }
-    QComboBox *getDiskComboBox() const { return diskComboBox; }
 
 private:
     QTreeView *tree;
-    QComboBox *diskComboBox;
     QLineEdit *pathLineEdit;
     QToolButton *backButton;
     CustomFileSystemModel *model;

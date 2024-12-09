@@ -9,7 +9,6 @@
 FileSystemWidget::FileSystemWidget(QMainWindow *parent)
     : QWidget(parent),
     tree(new QTreeView(this)),
-    diskComboBox(new QComboBox(this)),
     pathLineEdit(new QLineEdit(this)),
     backButton(new QToolButton(this)),
     model(new CustomFileSystemModel(this))
@@ -38,16 +37,10 @@ void FileSystemWidget::setupUi(){
         QToolButton:hover {}
     )");
 
-    // Заполнение ComboBox списком дисков
-    for (const QFileInfo &drive : QDir::drives()) {
-        diskComboBox->addItem(drive.absolutePath());
-    }
-
-    diskComboBox->setVisible(false);
-
     QString initialPath = QDir::drives().isEmpty() ? QString() : QDir::drives().first().absolutePath();
     pathLineEdit->setReadOnly(false);
     pathLineEdit->setText(initialPath);
+
 }
 
 void FileSystemWidget::connectSignals(){
@@ -75,16 +68,6 @@ void FileSystemWidget::connectSignals(){
                 tree->setRootIndex(parentIndex);
                 pathLineEdit->setText(model->filePath(parentIndex));
             }
-        }
-    });
-
-    // Логика смены диска при выборе в ComboBox
-    connect(diskComboBox, &QComboBox::currentTextChanged, [this](const QString &diskPath) {
-        if (QDir(diskPath).exists()) {
-            tree->setRootIndex(model->index(diskPath));
-            pathLineEdit->setText(diskPath);  // Обновляем QLineEdit при смене диска
-        } else {
-            QMessageBox::warning(this, QObject::tr("Error"), QObject::tr("The selected disk is not accessible!"));
         }
     });
 

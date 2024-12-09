@@ -10,6 +10,7 @@
 #include <QFileDialog>
 #include <QClipboard>
 #include <QDesktopServices>
+#include <QMenuBar>
 
 #include "Utility.h"
 #include "Manual.h"
@@ -63,6 +64,7 @@ int main(int argc, char *argv[])
     // ------------------------------- Меню ------------------------------- //
 
     menu.setupMenuBar(mainWindow.menuBar());
+    mainWindow.menuBar()->raise();
 
     // ---------------------------------------------------------------------------- //
 
@@ -82,7 +84,7 @@ int main(int argc, char *argv[])
 
     // ------------------------------- Файловая система ------------------------------- //
 
-    FileSystemWidget fileSystem(&mainWindow);
+    FileSystemWidget fileSystem;
 
     QTreeView *tree = fileSystem.getTree();
     CustomFileSystemModel *model = fileSystem.getModel();
@@ -585,16 +587,16 @@ int main(int argc, char *argv[])
 
     // ------------------------------- Компоновка ------------------------------- //
 
-    QWidget *centralWidget = new QWidget();
-    QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
+    QWidget *centralWidget = new QWidget(&mainWindow);
+    mainWindow.setCentralWidget(centralWidget);
 
+    QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
     QHBoxLayout *pathLayout = new QHBoxLayout();
     pathLayout->addWidget(backButton);
     pathLayout->addWidget(pathLineEdit);
 
     mainLayout->addLayout(pathLayout);  // Добавляем горизонтальную компоновку в основную вертикальную компоновку
     mainLayout->addWidget(tree);
-    mainWindow.setCentralWidget(centralWidget);
 
     // ---------------------------------------------------------------------------- //
 
