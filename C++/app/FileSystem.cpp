@@ -1,11 +1,10 @@
 #include "FileSystem.h"
 #include <QLineEdit>
 #include <QToolButton>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
 #include <QMessageBox>
 #include <QDesktopServices>
-#include <QListwidget>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 
 FileSystemWidget::FileSystemWidget(QMainWindow *parent)
     : QWidget(parent),
