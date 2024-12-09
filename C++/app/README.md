@@ -51,7 +51,7 @@ Extract files in command line mode:
 ## **Interface**
 The interface consists of several parts: context menu, toolbar and file tree.
 
-![](/images/appearance.png)
+![Appearance](/images/appearance.png)
 
 **Context menu**
 
@@ -63,7 +63,7 @@ The interface consists of several parts: context menu, toolbar and file tree.
 * None highlite - removal of selection
 * Exit - exit the application
 
-![](/images/file.png)
+![File](/images/file.png)
 
 **Commands:**
 * Add to an archive - adding files to archive
@@ -73,13 +73,13 @@ The interface consists of several parts: context menu, toolbar and file tree.
 * Rename files/folders - rename file or folder
 * Show information - shows the information contained in the file
 
-![](/images/commands.png)
+![Commands](/images/commands.png)
 
 **Help:**
 * Manual - brief manual for the application
 * About the program - brief information about the application
 
-![](/images/help.png)
+![Help](/images/help.png)
 
 **ToolBar:**
 * Add - adding files to archive
@@ -88,4 +88,4 @@ The interface consists of several parts: context menu, toolbar and file tree.
 * Delete - delete file or folder
 * Information - shows information about a file or folder
 
-![](/images/toolbar.png)
+![ToolBar](/images/toolbar.png)
