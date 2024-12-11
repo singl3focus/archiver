@@ -40,14 +40,6 @@ void FileSystemWidget::setupUi(){
     QString initialPath = QDir::drives().isEmpty() ? QString() : QDir::drives().first().absolutePath();
     pathLineEdit->setReadOnly(false);
     pathLineEdit->setText(initialPath);
-
-    QVBoxLayout *mainLayout = new QVBoxLayout();
-    QHBoxLayout *pathLayout = new QHBoxLayout();
-    pathLayout->addWidget(backButton);
-    pathLayout->addWidget(pathLineEdit);
-
-    mainLayout->addLayout(pathLayout);  // Добавляем горизонтальную компоновку в основную вертикальную компоновку
-    mainLayout->addWidget(tree);
 }
 
 void FileSystemWidget::connectSignals(){

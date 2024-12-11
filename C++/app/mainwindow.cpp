@@ -27,36 +27,6 @@ MainWindow::MainWindow(QApplication *app, QWidget *parent) : QMainWindow(parent)
     connectActions();
 }
 
-bool copyDirectoryContents(const QString &sourceDirPath, const QString &destinationDirPath) {
-    QDir sourceDir(sourceDirPath);
-    if (!sourceDir.exists()) {
-        return false;
-    }
-
-    QDir destinationDir(destinationDirPath);
-    if (!destinationDir.exists()) {
-        destinationDir.mkpath(".");
-    }
-
-    foreach (QString fileName, sourceDir.entryList(QDir::Files | QDir::NoDotAndDotDot)) {
-        QString srcFilePath = sourceDirPath + "/" + fileName;
-        QString destFilePath = destinationDirPath + "/" + fileName;
-        if (!QFile::copy(srcFilePath, destFilePath)) {
-            return false;
-        }
-    }
-
-    foreach (QString dirName, sourceDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        QString srcDirPath = sourceDirPath + "/" + dirName;
-        QString destDirPath = destinationDirPath + "/" + dirName;
-        if (!copyDirectoryContents(srcDirPath, destDirPath)) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 void MainWindow::setupMenuBar() {
     menu = new MenuBar(this);
     menu->setupMenuBar(menuBar());
