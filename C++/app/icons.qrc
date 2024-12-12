@@ -9,5 +9,7 @@
         <file>icons/appIcon.svg</file>
         <file>icons/book.svg</file>
         <file>icons/bookmark.svg</file>
+        <file>icons/hidePassword.svg</file>
+        <file>icons/showPassword.svg</file>
     </qresource>
 </RCC>

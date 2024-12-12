@@ -18,6 +18,8 @@
 #include <QClipboard>
 #include <QDesktopServices>
 #include <QMenuBar>
+#include <QLabel>
+#include <QPushButton>
 
 MainWindow::MainWindow(QApplication *app, QWidget *parent) : QMainWindow(parent), application(app) {
     setupMenuBar();
@@ -106,7 +108,6 @@ void MainWindow::setupStyles() {
             background-color: #BB86FC;
             color: #000000;
         }
-
     )";
 
     setStyleSheet(styleSheet);
@@ -257,13 +258,78 @@ void MainWindow::connectActions() {
         if (selectedIndex.isValid() && !model->isDir(selectedIndex)) {
             QString archivePath = model->filePath(selectedIndex);
 
+            QFileInfo fileInfo = model->fileInfo(selectedIndex);
+            QString fileSuffix = fileInfo.suffix();
+
             // Показать диалог для выбора папки назначения
             QString destinationPath = QFileDialog::getExistingDirectory(this, "Select Destination Folder");
+
             if (!destinationPath.isEmpty()) {
-                runExtractUtility(archivePath, destinationPath);
+
+                if (fileSuffix == "enc") {
+                    // Вызов модального окна для ввода пароля
+                    QDialog dialog(this);
+                    dialog.setWindowTitle("Enter password");
+
+                    QLabel *labelPassword = new QLabel("Password:");
+                    QLineEdit *passwordInput = new QLineEdit;
+                    passwordInput->setEchoMode(QLineEdit::Password);
+
+                    QToolButton *hideButton = new QToolButton;
+                    hideButton->setIcon(QIcon(":/icons/icons/showPassword.svg"));
+                    hideButton->setCheckable(true);
+                    hideButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
+                    hideButton->setStyleSheet(R"(
+                        QToolButton {
+                            padding: 1px 1px;
+                        }
+                    )");
+
+                    QHBoxLayout *passwordLayout = new QHBoxLayout;
+                    passwordLayout->addWidget(labelPassword);
+                    passwordLayout->addWidget(passwordInput);
+                    passwordLayout->addWidget(hideButton);
+
+                    connect(hideButton, &QToolButton::toggled, [&](bool checked) {
+                        if (checked) {
+                            passwordInput->setEchoMode(QLineEdit::Normal); // Показать пароль
+                            hideButton->setIcon(QIcon(":/icons/icons/hidePassword.svg")); // Изменить иконку
+                        } else {
+                            passwordInput->setEchoMode(QLineEdit::Password); // Скрыть пароль
+                            hideButton->setIcon(QIcon(":/icons/icons/showPassword.svg")); // Вернуть иконку
+                        }
+                    });
+
+                    QVBoxLayout *dialogLayout = new QVBoxLayout(&dialog);
+                    dialogLayout->addLayout(passwordLayout);
+
+                    QPushButton *okButton = new QPushButton("OK");
+                    QPushButton *cancelButton = new QPushButton("Cancel");
+
+                    QHBoxLayout *buttonLayout = new QHBoxLayout;
+                    buttonLayout->addWidget(okButton);
+                    buttonLayout->addWidget(cancelButton);
+
+                    dialogLayout->addLayout(buttonLayout);
+
+                    QObject::connect(okButton, &QPushButton::clicked, [&]() {
+                        QString password = passwordInput->text();
+                        dialog.accept();
+                        runExtractUtility(archivePath, destinationPath, password);
+                    });
+
+                    QObject::connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
+
+                    dialog.exec();
+
+                } else {
+                    runExtractUtility(archivePath, destinationPath);
+                }
+
             } else {
                 QMessageBox::warning(this, QObject::tr("Error"), QObject::tr("Please select a valid destination folder."));
             }
+
         } else {
             QMessageBox::warning(this, QObject::tr("Error"), QObject::tr("Please select a valid archive file to extract."));
         }

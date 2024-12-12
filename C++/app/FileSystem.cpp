@@ -34,7 +34,6 @@ void FileSystemWidget::setupUi(){
         QToolButton {
             padding: 5px 5px;
         }
-        QToolButton:hover {}
     )");
 
     QString initialPath = QDir::drives().isEmpty() ? QString() : QDir::drives().first().absolutePath();
