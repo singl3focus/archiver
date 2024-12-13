@@ -10,6 +10,7 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QToolButton>
+#
 
 #include "Utility.h"
 
@@ -43,7 +44,7 @@ void runArchiverUtility(const QString &src, const QString &dst, const QString &f
     });
 
     // Запускаем утилиту
-    process->start("D:/archiver/C++/app/AAR.exe", arguments);
+    process->start("./utility/AAR.exe", arguments);
 
     // Проверяем, что процесс успешно запущен
     if (!process->waitForStarted()) {
@@ -83,7 +84,7 @@ void runArchiverUtility(const QString &src, const QString &dst, const QString &f
     });
 
     // Запускаем утилиту
-    process->start("D:/archiver/C++/app/AAR.exe", arguments);
+    process->start("./utility/AAR.exe", arguments);
 
     // Проверяем, что процесс успешно запущен
     if (!process->waitForStarted()) {
@@ -121,7 +122,7 @@ void runExtractUtility(const QString &src, const QString &dst) {
     });
 
     // Запускаем утилиту
-    process->start("D:/archiver/C++/app/AAR.exe", arguments);
+    process->start("./utility/AAR.exe", arguments);
 
     // Проверяем, что процесс успешно запущен
     if (!process->waitForStarted()) {
@@ -160,7 +161,7 @@ void runExtractUtility(const QString &src, const QString &dst, const QString &pa
     });
 
     // Запускаем утилиту
-    process->start("D:/archiver/C++/app/AAR.exe", arguments);
+    process->start("./utility/AAR.exe", arguments);
 
     // Проверяем, что процесс успешно запущен
     if (!process->waitForStarted()) {
@@ -279,7 +280,7 @@ void showCompressionDialog(QWidget *parent, const QString &sourcePath) {
     dialog.exec();
 }
 
-void showExtractingDialog(QWidget *parent, const QString &destinationPath, const QString &archivePath, const QString &fileSuffix) {
+void showExtractionDialog(QWidget *parent, const QString &destinationPath, const QString &archivePath, const QString &fileSuffix) {
     QString suffix = fileSuffix;
 
     if (suffix == "enc") {

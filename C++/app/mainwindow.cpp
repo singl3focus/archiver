@@ -264,7 +264,7 @@ void MainWindow::connectActions() {
 
             if (!destinationPath.isEmpty()) {
 
-                showExtractingDialog(this, destinationPath, archivePath, fileSuffix);
+                showExtractionDialog(this, destinationPath, archivePath, fileSuffix);
 
             } else {
                 QMessageBox::warning(this, QObject::tr("Error"), QObject::tr("Please select a valid destination folder."));
@@ -439,7 +439,7 @@ void MainWindow::connectActions() {
 
             if (!destinationPath.isEmpty()) {
 
-                showExtractingDialog(this, destinationPath, archivePath, fileSuffix);
+                showExtractionDialog(this, destinationPath, archivePath, fileSuffix);
 
             } else {
                 QMessageBox::warning(this, QObject::tr("Error"), QObject::tr("Please select a valid destination folder."));
