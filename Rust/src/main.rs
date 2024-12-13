@@ -36,7 +36,7 @@ const ENCRYPT: &str = "enc";
 
 // call_err println error message and call exit(1)
 fn call_err<T: std::fmt::Display>(err_value: T) -> ! {
-    eprintln!("Error: {err_value}");
+    eprintln!("Error: {err_value}.");
     std::process::exit(1);
 }
 
@@ -109,7 +109,7 @@ impl Cli {
         }
 
         if self.mode == Mode::Compress && self.format == None {
-            call_err("Data format is empty");
+            call_err("Data format is empty.");
         }
     }
 }
@@ -118,6 +118,7 @@ impl Cli {
 
 fn main() {
     let cli: Cli = Cli::parse();
+    
     cli.validate();
 
     let src: std::result::Result<&str, &str> = cli.source.to_str().ok_or("Invalid source path");
@@ -126,8 +127,7 @@ fn main() {
         Err(e) => call_err(e),
     };
 
-    let dst: std::result::Result<&str, &str> =
-        cli.destination.to_str().ok_or("Invalid destination path");
+    let dst: std::result::Result<&str, &str> = cli.destination.to_str().ok_or("Invalid destination path");
     let dst_path: &str = match dst {
         Ok(d) => d,
         Err(e) => call_err(e),
@@ -146,21 +146,17 @@ fn main() {
     match cli.mode {
         Mode::Compress => match compression_distribution(src_path, dst_path, &df, pass) {
             Ok(_) => println!("Compress data has been successful."),
-            Err(e) => call_err(format!("Compress data has been unsuccessful: {e}.")),
+            Err(e) => call_err(format!("Compress data has been unsuccessful: {e}")),
         },
         Mode::Decompress => match decompression_distribution(src_path, dst_path, pass) {
             Ok(_) => println!("Decompress data has been successful."),
-            Err(e) => call_err(format!("Decompress data has been unsuccessful: {e}.")),
+            Err(e) => call_err(format!("Decompress data has been unsuccessful: {e}")),
         },
     }
 }
 
-fn compression_distribution(
-    src_path: &str,
-    dst_path: &str,
-    dataformat: &String,
-    password: String,
-) -> Result<()> {
+// TODO: Fix error when remove_file - Access is denied. (os error 5).
+fn compression_distribution(src_path: &str, dst_path: &str, dataformat: &String, password: String) -> Result<()> {
     let is_encryption_needed: bool = !password.is_empty();
 
     let created_archive_path: String = match dataformat.to_lowercase().as_str() {
@@ -188,14 +184,9 @@ fn compression_distribution(
         // let key: Vec<u8> = decode(password)?; // Требует Hex кодировку
         let iv: Vec<u8> = decode(INIT_VECTOR)?;
 
-        encrypt_file(
-            created_archive_path.as_str(),
-            encrypted_path.as_str(),
-            &key,
-            &iv,
-        )?; // Шифруем и сохраняем
+        encrypt_file(created_archive_path.as_str(), encrypted_path.as_str(), &key, &iv)?;
 
-        // std::fs::remove_file(dst_path)?; // Удаляем незащищённый файл. // TODO: Fix error - Access is denied. (os error 5).
+        // std::fs::remove_file(dst_path)?; // Удаляем незащищённый файл.
     }
 
     Ok(())
@@ -277,28 +268,34 @@ fn decompression_distribution(src_path: &str, dst_path: &str, password: String) 
 //     Ok(())
 // }
 
-/* //TODO: BUGs:
-    - If 'src_path' is file, compress is bug (archive be empty)
-*/
+// TODO: BUGs - If 'src_path' is file, compress is bug (archive be empty)
+// TODO: add push file
 fn compress_to_zip(src_path: &str, dst_path: &str) -> Result<String> {
     let src: PathBuf = PathBuf::from(src_path);
-    let dest: PathBuf = PathBuf::from(dst_path);
+    let mut dest: PathBuf = PathBuf::from(dst_path);
+
+    let archive_name: String = if src.is_dir() {
+        src.file_name().unwrap().to_str().unwrap().to_string()
+    } else {
+        src.file_stem().unwrap().to_str().unwrap().to_string()
+    };
+
+    dest.push(format!("{archive_name}.{ZIP}"));
 
     let mut archiver: Archiver = Archiver::new();
-    archiver.push(src); // Add dir to queue
-    archiver.set_destination(dest); // Add dst path
+    archiver.push(src_path); // Add dir to queue
+    archiver.set_destination(dst_path); // Add dst path
 
     // let thread_count: i32 = 4;
     // archiver.set_thread_count(thread_count);
 
     archiver.archive()?;
 
-    Ok(dst_path.to_string())
+    
+    Ok(dest.to_str().unwrap().to_string())
 }
 
-/* //TODO: BUGs:
-    - If 'src_path' is file, compress is err (The directory name is invalid. (os error 267).)
-*/
+//TODO: BUG  If 'src_path' is file, compress is err (The directory name is invalid. (os error 267).
 fn compress_to_tar(src_path: &str, dst_path: &str) -> Result<String> {
     let src: PathBuf = PathBuf::from(src_path);
     let mut dest: PathBuf = PathBuf::from(dst_path);
@@ -324,6 +321,8 @@ fn compress_to_tar(src_path: &str, dst_path: &str) -> Result<String> {
     let enc: GzEncoder<File> = GzEncoder::new(tar_gz, Compression::default());
     let mut tar: tar::Builder<GzEncoder<File>> = tar::Builder::new(enc);
 
+    println!("{:?}", &dest);
+
     if src.is_dir() {
         match tar.append_dir_all("", &src) {
             Ok(_) => Ok(dest.to_str().unwrap().to_string()), // * Maybe Call panic
@@ -342,7 +341,6 @@ fn compress_to_tar(src_path: &str, dst_path: &str) -> Result<String> {
         //     Err(e) => {
         //         // If compress failed -> We need delete archive file
         //         std::fs::remove_file(&dest)?;
-
         //         Err(Box::new(std::io::Error::new(
         //             std::io::ErrorKind::Other,
         //             e,
@@ -355,9 +353,7 @@ fn compress_to_tar(src_path: &str, dst_path: &str) -> Result<String> {
 
 /* --------------------------------------------- */
 
-/* //TODO: BUGs:
-    - If dir/file already exist func will be change only content in old dir/file
-*/
+//TODO: BUG - If dir/file already exist func will be change only content in old dir/file
 fn decompress_from_zip(src_path: &str, dst_path: &str) -> Result<()> {
     let zip_file: File = File::open(src_path)?;
     let mut archive: zip::ZipArchive<File> = zip::ZipArchive::new(zip_file)?;
@@ -394,12 +390,12 @@ fn decompress_from_zip(src_path: &str, dst_path: &str) -> Result<()> {
     Ok(())
 }
 
-/* //TODO BUGs:
-    - If the target directory already exists,
-    files will be extracted into it. There is a bug that, if the file already exists, it will overwrite the content.
+/* //TODO BUG:
+    - If the target directory already exists, files will be extracted into it.
+    There is a bug that, if the file already exists, it will overwrite the content.
     To prevent that, consider adding a check and prompt or rename existing files if necessary.
-    - Add create parent dir from
 */
+// TODO: Add create parent dir from
 fn decompress_from_tar(src_path: &str, dst_path: &str) -> Result<()> {
     let tar_gz: File = File::open(src_path)?;
 
