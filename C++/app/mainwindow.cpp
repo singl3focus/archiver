@@ -245,8 +245,6 @@ void MainWindow::connectActions() {
         QModelIndex selectedIndex = tree->selectionModel()->currentIndex();
         if (selectedIndex.isValid() && model->isDir(selectedIndex)) {
             QString folderPath = model->filePath(selectedIndex);
-
-            // Теперь вызываем диалог для выбора пути и формата архивации
             showCompressionDialog(this, folderPath);
         } else {
             QMessageBox::warning(this, QObject::tr("Error"), QObject::tr("Please select a folder to add to the archive."));
@@ -266,65 +264,7 @@ void MainWindow::connectActions() {
 
             if (!destinationPath.isEmpty()) {
 
-                if (fileSuffix == "enc") {
-                    // Вызов модального окна для ввода пароля
-                    QDialog dialog(this);
-                    dialog.setWindowTitle("Enter password");
-
-                    QLabel *labelPassword = new QLabel("Password:");
-                    QLineEdit *passwordInput = new QLineEdit;
-                    passwordInput->setEchoMode(QLineEdit::Password);
-
-                    QToolButton *hideButton = new QToolButton;
-                    hideButton->setIcon(QIcon(":/icons/icons/showPassword.svg"));
-                    hideButton->setCheckable(true);
-                    hideButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
-                    hideButton->setStyleSheet(R"(
-                        QToolButton {
-                            padding: 1px 1px;
-                        }
-                    )");
-
-                    QHBoxLayout *passwordLayout = new QHBoxLayout;
-                    passwordLayout->addWidget(labelPassword);
-                    passwordLayout->addWidget(passwordInput);
-                    passwordLayout->addWidget(hideButton);
-
-                    connect(hideButton, &QToolButton::toggled, [&](bool checked) {
-                        if (checked) {
-                            passwordInput->setEchoMode(QLineEdit::Normal); // Показать пароль
-                            hideButton->setIcon(QIcon(":/icons/icons/hidePassword.svg")); // Изменить иконку
-                        } else {
-                            passwordInput->setEchoMode(QLineEdit::Password); // Скрыть пароль
-                            hideButton->setIcon(QIcon(":/icons/icons/showPassword.svg")); // Вернуть иконку
-                        }
-                    });
-
-                    QVBoxLayout *dialogLayout = new QVBoxLayout(&dialog);
-                    dialogLayout->addLayout(passwordLayout);
-
-                    QPushButton *okButton = new QPushButton("OK");
-                    QPushButton *cancelButton = new QPushButton("Cancel");
-
-                    QHBoxLayout *buttonLayout = new QHBoxLayout;
-                    buttonLayout->addWidget(okButton);
-                    buttonLayout->addWidget(cancelButton);
-
-                    dialogLayout->addLayout(buttonLayout);
-
-                    QObject::connect(okButton, &QPushButton::clicked, [&]() {
-                        QString password = passwordInput->text();
-                        dialog.accept();
-                        runExtractUtility(archivePath, destinationPath, password);
-                    });
-
-                    QObject::connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
-
-                    dialog.exec();
-
-                } else {
-                    runExtractUtility(archivePath, destinationPath);
-                }
+                showExtractingDialog(this, destinationPath, archivePath, fileSuffix);
 
             } else {
                 QMessageBox::warning(this, QObject::tr("Error"), QObject::tr("Please select a valid destination folder."));
@@ -480,8 +420,6 @@ void MainWindow::connectActions() {
         QModelIndex selectedIndex = tree->selectionModel()->currentIndex();
         if (selectedIndex.isValid() && model->isDir(selectedIndex)) {
             QString folderPath = model->filePath(selectedIndex);
-
-            // Теперь вызываем диалог для выбора пути и формата архивации
             showCompressionDialog(this, folderPath);
         } else {
             QMessageBox::warning(this, QObject::tr("Error"), QObject::tr("Please select a folder to add to the archive."));
@@ -501,65 +439,7 @@ void MainWindow::connectActions() {
 
             if (!destinationPath.isEmpty()) {
 
-                if (fileSuffix == "enc") {
-                    // Вызов модального окна для ввода пароля
-                    QDialog dialog(this);
-                    dialog.setWindowTitle("Enter password");
-
-                    QLabel *labelPassword = new QLabel("Password:");
-                    QLineEdit *passwordInput = new QLineEdit;
-                    passwordInput->setEchoMode(QLineEdit::Password);
-
-                    QToolButton *hideButton = new QToolButton;
-                    hideButton->setIcon(QIcon(":/icons/icons/showPassword.svg"));
-                    hideButton->setCheckable(true);
-                    hideButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
-                    hideButton->setStyleSheet(R"(
-                        QToolButton {
-                            padding: 1px 1px;
-                        }
-                    )");
-
-                    QHBoxLayout *passwordLayout = new QHBoxLayout;
-                    passwordLayout->addWidget(labelPassword);
-                    passwordLayout->addWidget(passwordInput);
-                    passwordLayout->addWidget(hideButton);
-
-                    connect(hideButton, &QToolButton::toggled, [&](bool checked) {
-                        if (checked) {
-                            passwordInput->setEchoMode(QLineEdit::Normal); // Показать пароль
-                            hideButton->setIcon(QIcon(":/icons/icons/hidePassword.svg")); // Изменить иконку
-                        } else {
-                            passwordInput->setEchoMode(QLineEdit::Password); // Скрыть пароль
-                            hideButton->setIcon(QIcon(":/icons/icons/showPassword.svg")); // Вернуть иконку
-                        }
-                    });
-
-                    QVBoxLayout *dialogLayout = new QVBoxLayout(&dialog);
-                    dialogLayout->addLayout(passwordLayout);
-
-                    QPushButton *okButton = new QPushButton("OK");
-                    QPushButton *cancelButton = new QPushButton("Cancel");
-
-                    QHBoxLayout *buttonLayout = new QHBoxLayout;
-                    buttonLayout->addWidget(okButton);
-                    buttonLayout->addWidget(cancelButton);
-
-                    dialogLayout->addLayout(buttonLayout);
-
-                    QObject::connect(okButton, &QPushButton::clicked, [&]() {
-                        QString password = passwordInput->text();
-                        dialog.accept();
-                        runExtractUtility(archivePath, destinationPath, password);
-                    });
-
-                    QObject::connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
-
-                    dialog.exec();
-
-                } else {
-                    runExtractUtility(archivePath, destinationPath);
-                }
+                showExtractingDialog(this, destinationPath, archivePath, fileSuffix);
 
             } else {
                 QMessageBox::warning(this, QObject::tr("Error"), QObject::tr("Please select a valid destination folder."));

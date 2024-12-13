@@ -278,3 +278,66 @@ void showCompressionDialog(QWidget *parent, const QString &sourcePath) {
 
     dialog.exec();
 }
+
+void showExtractingDialog(QWidget *parent, const QString &destinationPath, const QString &archivePath, const QString &fileSuffix) {
+    QString suffix = fileSuffix;
+
+    if (suffix == "enc") {
+        // Вызов модального окна для ввода пароля
+        QDialog dialog(parent);
+        dialog.setWindowTitle("Enter password");
+
+        QLabel *labelPassword = new QLabel("Password:");
+        QLineEdit *passwordInput = new QLineEdit;
+        passwordInput->setEchoMode(QLineEdit::Password);
+
+        QToolButton *hideButton = new QToolButton;
+        hideButton->setIcon(QIcon(":/icons/icons/showPassword.svg"));
+        hideButton->setCheckable(true);
+        hideButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        hideButton->setStyleSheet(R"(
+                        QToolButton {
+                            padding: 1px 1px;
+                        }
+                    )");
+
+        QHBoxLayout *passwordLayout = new QHBoxLayout;
+        passwordLayout->addWidget(labelPassword);
+        passwordLayout->addWidget(passwordInput);
+        passwordLayout->addWidget(hideButton);
+
+        QObject::connect(hideButton, &QToolButton::toggled, [&](bool checked) {
+            if (checked) {
+                passwordInput->setEchoMode(QLineEdit::Normal); // Показать пароль
+                hideButton->setIcon(QIcon(":/icons/icons/hidePassword.svg")); // Изменить иконку
+            } else {
+                passwordInput->setEchoMode(QLineEdit::Password); // Скрыть пароль
+                hideButton->setIcon(QIcon(":/icons/icons/showPassword.svg")); // Вернуть иконку
+            }
+        });
+
+        QVBoxLayout *dialogLayout = new QVBoxLayout(&dialog);
+        dialogLayout->addLayout(passwordLayout);
+
+        QPushButton *okButton = new QPushButton("OK");
+        QPushButton *cancelButton = new QPushButton("Cancel");
+
+        QHBoxLayout *buttonLayout = new QHBoxLayout;
+        buttonLayout->addWidget(okButton);
+        buttonLayout->addWidget(cancelButton);
+
+        dialogLayout->addLayout(buttonLayout);
+
+        QObject::connect(okButton, &QPushButton::clicked, [&]() {
+            QString password = passwordInput->text();
+            dialog.accept();
+            runExtractUtility(archivePath, destinationPath, password);
+        });
+
+        QObject::connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
+
+        dialog.exec();
+    } else {
+        runExtractUtility(archivePath, destinationPath);
+    }
+}
