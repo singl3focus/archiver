@@ -5,8 +5,11 @@
         <file>icons/delete.svg</file>
         <file>icons/extract.svg</file>
         <file>icons/information.svg</file>
-        <file>icons/search.svg</file>
-        <file>icons/test.svg</file>
         <file>icons/view.svg</file>
+        <file>icons/appIcon.svg</file>
+        <file>icons/book.svg</file>
+        <file>icons/bookmark.svg</file>
+        <file>icons/hidePassword.svg</file>
+        <file>icons/showPassword.svg</file>
     </qresource>
 </RCC>
