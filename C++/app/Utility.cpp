@@ -10,7 +10,6 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QToolButton>
-#
 
 #include "Utility.h"
 
@@ -169,8 +168,6 @@ void runExtractUtility(const QString &src, const QString &dst, const QString &pa
         delete process;
     }
 }
-
-
 
 // Функция для показа модального окна выбора пути и формата архивации
 void showCompressionDialog(QWidget *parent, const QString &sourcePath) {
