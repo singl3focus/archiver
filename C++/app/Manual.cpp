@@ -76,7 +76,8 @@ void showManualWindow(QWidget *parent) {
                                       "•    Click the button in the context menu 'Commands' -> 'Add to archive'\n"
                                       "     or press the key combination Alt + A\n "
                                       "     or click the 'Add' button on the toolbar;\n"
-                                      "•    In the window that opens, select the path where you want to save the archive and the archiving format;\n"
+                                      "•    In the window that opens, select the path to save the archive, select the\n"
+                                      "     archiving format and, if necessary, set a password for the archive;\n"
                                       "•    Click the 'OK' button. \n\n"
                                       "Extract files in a graphical shell:\n"
                                       "•    Open AntimAR; \n"
@@ -85,21 +86,24 @@ void showManualWindow(QWidget *parent) {
                                       "     or press the key combination Alt + E \n "
                                       "     or click the 'Extract to' button on the toolbar; \n"
                                       "•    In the dialog box that opens, select the folder where you want to extract the archive; \n"
-                                      "•    Click the 'Select folder' button. \n\n"
+                                      "•    Click the 'Select folder' button; \n"
+                                      "•    If the archive has a password, enter the password. \n\n"
                                       "<------------------------------------------------------------------------------>\n\n"
                                       "Archiving files in command line mode:\n"
                                       "•    Run the executable file AAR.exe from the command line in the following format:\n"
-                                      "     AAR.exe <Mode of operation> -s <Source path> -d <Destination path> -f <Data format>\n"
+                                      "     AAR.exe <Mode of operation> -s <Source path> -d <Destination path> -f <Data format> -p <Password>\n"
                                       "•    Mode of operation takes the values ​​compress\n"
                                       "•    Source path - path to folder or file\n"
                                       "•    Destination path - the path where the archive will be saved\n"
-                                      "•    Date format - archiving format (tar or zip)\n\n"
+                                      "•    Date format - archiving format (tar or zip)\n"
+                                      "•    Password - if the flag is specified, then you must enter the password\n\n"
                                       "Extract files in command line mode:\n"
                                       "•    Run the executable file AAR.exe from the command line in the following format:\n"
-                                      "     AAR.exe <Mode of operation> -s <Source path> -d <Destination path>\n"
+                                      "     AAR.exe <Mode of operation> -s <Source path> -d <Destination path> -p <Password>\n"
                                       "•    Mode of operation takes the values de​​compress\n"
                                       "•    Source path - path to archive\n"
-                                      "•    Destination path - the path where the files will be extracted\n");
+                                      "•    Destination path - the path where the files will be extracted\n"
+                                      "•    Password - if a password is set, then enter the password through the flag.\n");
 
             h1Format.setFontWeight(QFont::Bold);
             h1Format.setFontPointSize(16); // Размер шрифта для заголовка
@@ -109,9 +113,9 @@ void showManualWindow(QWidget *parent) {
             contentFormat.setForeground(Qt::white); // Цвет текста контента
         } else if (selectedText == QObject::tr("AntimAR interface")) {
             h1 = QObject::tr("Interface\n");
-            textContent = QObject::tr("The interface consists of several parts: context menu, toolbar and file tree.\n\n"
+            textContent = QObject::tr("The interface consists of several parts: menu, toolbar and file tree.\n\n"
                                       "<------------------------------------------------------------------------------>\n\n"
-                                      "Context menu\n\n"
+                                      "Menu\n\n"
                                       "File:\n"
                                       "•    Open archive - opening an archive in a file tree\n"
                                       "•    Copy - copying elements\n"
@@ -145,8 +149,7 @@ void showManualWindow(QWidget *parent) {
             contentFormat.setForeground(Qt::white); // Цвет текста контента
         } else if (selectedText == QObject::tr("Future functionality")) {
             h1 = QObject::tr("What features will be added in the future\n");
-            textContent = QObject::tr("In the near future, we plan to increase the number of supported compression formats, "
-                                      "as well as add the ability to set a password for the archive.\n\n");
+            textContent = QObject::tr("In the near future, we plan to increase the number of supported compression formats.\n\n");
 
             h1Format.setFontWeight(QFont::Bold);
             h1Format.setFontPointSize(16); // Размер шрифта для заголовка
@@ -157,10 +160,10 @@ void showManualWindow(QWidget *parent) {
         } else if (selectedText == QObject::tr("Developers contacts")) {
             h1 = QObject::tr("Developers contacts\n");
             textContent = QObject::tr("Tursunov Imran (Backend)\n"
-                                      "Email: tursunov.imran@mail.ru\n"
+                                      "E-mail: tursunov.imran@mail.ru\n"
                                       "Telegram: @single_focus\n\n"
                                       "Smirnov Anton (GUI)\n"
-                                      "Email: kujik.toxa@gmail.com\n"
+                                      "E-mail: kujik.toxa@gmail.com\n"
                                       "Telegram: @ascom8\n");
 
             h1Format.setFontWeight(QFont::Bold);
